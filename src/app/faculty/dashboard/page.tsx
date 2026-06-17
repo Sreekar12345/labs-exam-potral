@@ -159,7 +159,6 @@ export default function FacultyDashboard() {
     title: "",
     subject: "CS201: Data Structures",
     difficulty: "Medium" as const,
-    tagsString: "",
     description: "",
     maxMarks: 10,
     estimatedTime: 30,
@@ -243,7 +242,7 @@ export default function FacultyDashboard() {
     e.preventDefault();
     if (!newQuestion.title) return;
 
-    const tags = newQuestion.tagsString.split(",").map(t => t.trim()).filter(t => t.length > 0);
+    const tags: string[] = [];
     const addedStorage = {
       id: Date.now().toString(),
       title: newQuestion.title,
@@ -285,7 +284,6 @@ export default function FacultyDashboard() {
       title: "", 
       subject: "CS201: Data Structures", 
       difficulty: "Medium", 
-      tagsString: "",
       description: "",
       maxMarks: 10,
       estimatedTime: 30,
@@ -1266,17 +1264,6 @@ export default function FacultyDashboard() {
                   </div>
                 </div>
 
-                {/* Tags */}
-                <div className="space-y-1">
-                  <label className="block font-bold text-slate-700">Subject Tags (comma separated)</label>
-                  <input
-                    type="text"
-                    value={newQuestion.tagsString}
-                    onChange={(e) => setNewQuestion({ ...newQuestion, tagsString: e.target.value })}
-                    placeholder="e.g. List, Recursion, Stack"
-                    className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
-                  />
-                </div>
 
                 {/* 1. Question Description */}
                 <div className="space-y-1">
