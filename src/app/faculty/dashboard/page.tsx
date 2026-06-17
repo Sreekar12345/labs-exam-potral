@@ -27,7 +27,9 @@ import {
   Menu,
   Clock,
   ArrowRight,
-  RefreshCw
+  RefreshCw,
+  X,
+  AlertTriangle
 } from "lucide-react";
 import { 
   loadAssessments, 
@@ -89,6 +91,351 @@ export default function FacultyDashboard() {
   const [showCreateExamModal, setShowCreateExamModal] = useState(false);
   const [showUploadStudentsModal, setShowUploadStudentsModal] = useState(false);
   const [showAddQuestionModal, setShowAddQuestionModal] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [uploadedFile, setUploadedFile] = useState<File | null>(null);
+  const csvInputRef = React.useRef<HTMLInputElement>(null);
+
+  // CSV Import States
+  interface ParsedRow {
+    rowNum: number;
+    data: {
+      title: string;
+      subject: string;
+      difficulty: "Easy" | "Medium" | "Hard";
+      description: string;
+      marks: number;
+      estimatedTime: number;
+      allowedLanguages: string[];
+      status: "Active" | "Archived";
+    };
+    errors: string[];
+    isValid: boolean;
+  }
+
+  const [parsedRows, setParsedRows] = useState<ParsedRow[]>([]);
+  const [isDragActive, setIsDragActive] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
+  const [toast, setToast] = useState<{ message: string; type: "success" | "error" } | null>(null);
+
+  const triggerToast = (message: string, type: "success" | "error" = "success") => {
+    setToast({ message, type });
+    setTimeout(() => {
+      setToast(prev => prev && prev.message === message ? null : prev);
+    }, 4000);
+  };
+
+  // CSV Import Helpers
+  const parseCSV = (csvText: string): ParsedRow[] => {
+    const lines: string[][] = [];
+    let row: string[] = [""];
+    let inQuotes = false;
+    
+    for (let i = 0; i < csvText.length; i++) {
+      const char = csvText[i];
+      const nextChar = csvText[i + 1];
+      
+      if (char === '"') {
+        if (inQuotes && nextChar === '"') {
+          row[row.length - 1] += '"';
+          i++;
+        } else {
+          inQuotes = !inQuotes;
+        }
+      } else if (char === ',' && !inQuotes) {
+        row.push("");
+      } else if ((char === '\r' || char === '\n') && !inQuotes) {
+        if (char === '\r' && nextChar === '\n') {
+          i++;
+        }
+        lines.push(row);
+        row = [""];
+      } else {
+        row[row.length - 1] += char;
+      }
+    }
+    if (row.length > 1 || row[0] !== "") {
+      lines.push(row);
+    }
+    
+    if (lines.length === 0) return [];
+    
+    // Header parsing - case-insensitive mapping
+    const rawHeaders = lines[0].map(h => h.trim().toLowerCase());
+    
+    const requiredHeaders = [
+      "question title",
+      "course subject",
+      "difficulty rating",
+      "question description",
+      "maximum marks",
+      "estimated completion time",
+      "allowed programming languages",
+      "question status"
+    ];
+    
+    const missingHeaders: string[] = [];
+    requiredHeaders.forEach(req => {
+      if (rawHeaders.indexOf(req) === -1) {
+        missingHeaders.push(req.split(" ").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" "));
+      }
+    });
+    
+    if (missingHeaders.length > 0) {
+      throw new Error(`CSV structure validation failed. Missing required columns: ${missingHeaders.join(", ")}`);
+    }
+
+    const titleIdx = rawHeaders.indexOf("question title");
+    const subjectIdx = rawHeaders.indexOf("course subject");
+    const difficultyIdx = rawHeaders.indexOf("difficulty rating");
+    const descriptionIdx = rawHeaders.indexOf("question description");
+    const marksIdx = rawHeaders.indexOf("maximum marks");
+    const timeIdx = rawHeaders.indexOf("estimated completion time");
+    const langIdx = rawHeaders.indexOf("allowed programming languages");
+    const statusIdx = rawHeaders.indexOf("question status");
+
+    const results: ParsedRow[] = [];
+    
+    for (let r = 1; r < lines.length; r++) {
+      const line = lines[r];
+      if (line.length === 0 || (line.length === 1 && line[0].trim() === "")) continue;
+      
+      const errors: string[] = [];
+      const title = titleIdx !== -1 && line[titleIdx] ? line[titleIdx].trim() : "";
+      const subject = subjectIdx !== -1 && line[subjectIdx] ? line[subjectIdx].trim() : "";
+      const difficultyRaw = difficultyIdx !== -1 && line[difficultyIdx] ? line[difficultyIdx].trim() : "";
+      const description = descriptionIdx !== -1 && line[descriptionIdx] ? line[descriptionIdx].trim() : "";
+      const marksRaw = marksIdx !== -1 && line[marksIdx] ? line[marksIdx].trim() : "";
+      const timeRaw = timeIdx !== -1 && line[timeIdx] ? line[timeIdx].trim() : "";
+      const langRaw = langIdx !== -1 && line[langIdx] ? line[langIdx].trim() : "";
+      const statusRaw = statusIdx !== -1 && line[statusIdx] ? line[statusIdx].trim() : "";
+      
+      if (!title) {
+        errors.push("Question Title is required and cannot be empty.");
+      }
+      if (!subject) {
+        errors.push("Course Subject is required and cannot be empty.");
+      }
+      
+      let difficulty: "Easy" | "Medium" | "Hard" = "Medium";
+      if (!difficultyRaw) {
+        errors.push("Difficulty Rating is required.");
+      } else {
+        const diffLower = difficultyRaw.toLowerCase();
+        if (diffLower === "easy") {
+          difficulty = "Easy";
+        } else if (diffLower === "medium") {
+          difficulty = "Medium";
+        } else if (diffLower === "hard") {
+          difficulty = "Hard";
+        } else {
+          errors.push(`Invalid Difficulty Rating '${difficultyRaw}'. Must be one of: Easy, Medium, Hard.`);
+        }
+      }
+      
+      if (!description) {
+        errors.push("Question Description is required and cannot be empty.");
+      }
+      
+      let marks = 0;
+      if (!marksRaw) {
+        errors.push("Maximum Marks is required.");
+      } else {
+        const parsedMarks = Number(marksRaw);
+        if (isNaN(parsedMarks) || parsedMarks <= 0) {
+          errors.push(`Invalid Maximum Marks '${marksRaw}'. Must be a positive number.`);
+        } else {
+          marks = Math.floor(parsedMarks);
+        }
+      }
+
+      let estimatedTime = 0;
+      if (!timeRaw) {
+        errors.push("Estimated Completion Time is required.");
+      } else {
+        const cleanTime = timeRaw.replace(/[^0-9.]/g, "");
+        const parsedTime = Number(cleanTime);
+        if (isNaN(parsedTime) || parsedTime <= 0) {
+          errors.push(`Invalid Estimated Completion Time '${timeRaw}'. Must be a positive integer.`);
+        } else {
+          estimatedTime = Math.floor(parsedTime);
+        }
+      }
+
+      let allowedLanguages: string[] = [];
+      if (!langRaw) {
+        errors.push("Allowed Programming Languages is required.");
+      } else {
+        allowedLanguages = langRaw.split(/[,;\/|]/).map(l => l.trim()).filter(Boolean);
+        if (allowedLanguages.length === 0) {
+          errors.push("Allowed Programming Languages must contain at least one language.");
+        }
+      }
+
+      let status: "Active" | "Archived" = "Active";
+      if (statusRaw) {
+        const statusLower = statusRaw.toLowerCase();
+        if (statusLower === "active") {
+          status = "Active";
+        } else if (statusLower === "archived" || statusLower === "inactive") {
+          status = "Archived";
+        } else {
+          errors.push(`Invalid Question Status '${statusRaw}'. Must be Active or Archived.`);
+        }
+      }
+      
+      results.push({
+        rowNum: r + 1,
+        data: {
+          title,
+          subject,
+          difficulty,
+          description,
+          marks,
+          estimatedTime,
+          allowedLanguages,
+          status
+        },
+        errors,
+        isValid: errors.length === 0
+      });
+    }
+    
+    return results;
+  };
+
+  const handleCSVFile = (file: File) => {
+    setValidationError(null);
+    if (!file.name.toLowerCase().endsWith(".csv")) {
+      setValidationError("File format not supported. Please select a valid CSV file.");
+      setUploadedFile(null);
+      return;
+    }
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const text = e.target?.result as string;
+        const results = parseCSV(text);
+        if (results.length === 0) {
+          setValidationError("The uploaded CSV file contains no question records.");
+          setParsedRows([]);
+          setUploadedFile(null);
+        } else {
+          setUploadedFile(file);
+          setParsedRows(results);
+        }
+      } catch (err: any) {
+        setValidationError(err.message || "Failed to parse CSV file. Please verify file integrity.");
+        setParsedRows([]);
+        setUploadedFile(null);
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  const handleDownloadSample = () => {
+    const csvContent = [
+      "Question Title,Course Subject,Difficulty Rating,Question Description,Maximum Marks,Estimated Completion Time,Allowed Programming Languages,Question Status",
+      'Invert a Binary Tree,Data Structures,Medium,"Given the root of a binary tree, invert the tree (swap left and right subtrees of every node) and return its root.",15,30,"C++, Java, Python",Active',
+      'Fibonacci Sequence,Recursion,Easy,"Write a recursive function to compute the Nth Fibonacci number.",10,15,"Python, Java, C++",Active',
+      'Validate Binary Search Tree,Data Structures,Medium,"Given the root of a binary tree, determine if it is a valid binary search tree (BST).",15,25,"Java, Python",Active',
+      'Implement Dijkstra Shortest Path,Algorithms,Hard,"Given a weighted graph, find the shortest path from a source vertex S to all other vertices.",20,45,"C++, Java",Active'
+    ].join("\n");
+    
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", "sample_questions.csv");
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const handleDownloadErrorReport = () => {
+    if (parsedRows.length === 0) return;
+    const invalid = parsedRows.filter(r => !r.isValid);
+    if (invalid.length === 0) return;
+    
+    const csvHeaders = "Row,Question Title,Course Subject,Difficulty Rating,Question Description,Maximum Marks,Estimated Completion Time,Allowed Programming Languages,Question Status,Errors\n";
+    const csvContent = invalid.map(r => {
+      const titleEscaped = `"${(r.data.title || "").replace(/"/g, '""')}"`;
+      const subjectEscaped = `"${(r.data.subject || "").replace(/"/g, '""')}"`;
+      const diffEscaped = `"${(r.data.difficulty || "").replace(/"/g, '""')}"`;
+      const descEscaped = `"${(r.data.description || "").replace(/"/g, '""')}"`;
+      const marksEscaped = r.data.marks || "";
+      const timeEscaped = r.data.estimatedTime || "";
+      const langEscaped = `"${(r.data.allowedLanguages || []).join(", ").replace(/"/g, '""')}"`;
+      const statusEscaped = `"${(r.data.status || "").replace(/"/g, '""')}"`;
+      const errorsEscaped = `"${r.errors.join("; ").replace(/"/g, '""')}"`;
+      return `${r.rowNum},${titleEscaped},${subjectEscaped},${diffEscaped},${descEscaped},${marksEscaped},${timeEscaped},${langEscaped},${statusEscaped},${errorsEscaped}`;
+    }).join("\n");
+    
+    const blob = new Blob([csvHeaders + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `${uploadedFile?.name.replace(".csv", "")}_error_report.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const executeImportValid = () => {
+    const valid = parsedRows.filter(r => r.isValid);
+    if (valid.length === 0) {
+      triggerToast("No valid questions to import.", "error");
+      return;
+    }
+    
+    const facultyProfile = loadFacultyProfile();
+    const newQuestions: any[] = valid.map((row, idx) => ({
+      id: (Date.now() + idx).toString(),
+      title: row.data.title,
+      language: row.data.allowedLanguages.join(", "),
+      difficulty: row.data.difficulty,
+      marks: row.data.marks,
+      topic: row.data.subject,
+      lastUpdated: new Date().toISOString().split("T")[0],
+      status: row.data.status,
+      timesUsed: 0,
+      avgScore: "N/A",
+      successRate: "N/A",
+      avgTime: `${row.data.estimatedTime}m`,
+      createdBy: facultyProfile.fullName || "Faculty HOD",
+      createdDate: new Date().toISOString().split("T")[0],
+      version: 1,
+      tags: [row.data.subject, row.data.difficulty],
+      description: row.data.description,
+      estimatedTime: row.data.estimatedTime,
+      allowedLanguages: row.data.allowedLanguages
+    }));
+    
+    const updated = [...newQuestions, ...loadQuestions()];
+    saveQuestions(updated);
+    
+    // Reload state questions
+    setQuestions(updated.map(q => ({
+      id: q.id,
+      title: q.title,
+      subject: `${q.language}: ${q.topic}`,
+      difficulty: q.difficulty,
+      usageCount: q.timesUsed,
+      tags: q.tags
+    })));
+    
+    triggerToast(`Successfully imported ${newQuestions.length} questions.`);
+    setShowImportModal(false);
+    resetImportUploader();
+  };
+
+  const resetImportUploader = () => {
+    setUploadedFile(null);
+    setParsedRows([]);
+    setValidationError(null);
+  };
 
   // 1. Dynamic State Data synchronized from local storage
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -748,12 +1095,20 @@ export default function FacultyDashboard() {
                     Mock Empty State
                   </label>
                 </div>
-                <button 
-                  onClick={() => setShowAddQuestionModal(true)}
-                  className="bg-navy-900 hover:bg-navy-950 text-white font-bold px-3 py-2 rounded-md flex items-center gap-1.5"
-                >
-                  <Plus className="w-4 h-4" /> Add Question
-                </button>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => setShowImportModal(true)}
+                    className="bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-bold px-3 py-2 rounded-md flex items-center gap-1.5 transition-all text-xs"
+                  >
+                    <Upload className="w-3.5 h-3.5 text-slate-500" /> Upload CSV
+                  </button>
+                  <button 
+                    onClick={() => setShowAddQuestionModal(true)}
+                    className="bg-navy-900 hover:bg-navy-950 text-white font-bold px-3 py-2 rounded-md flex items-center gap-1.5 text-xs"
+                  >
+                    <Plus className="w-4 h-4" /> Add Question
+                  </button>
+                </div>
               </div>
 
               {!showEmptyQuestions ? (
@@ -1344,6 +1699,256 @@ export default function FacultyDashboard() {
               </div>
             </form>
           </div>
+        </div>
+      )}
+
+      {/* ========================================================================= */}
+      {/* MODAL SHEET: BULK IMPORT CSV */}
+      {showImportModal && (() => {
+        const validCount = parsedRows.filter(r => r.isValid).length;
+        const invalidCount = parsedRows.filter(r => !r.isValid).length;
+        
+        return (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+            <div 
+              onClick={() => {
+                setShowImportModal(false);
+                resetImportUploader();
+              }} 
+              className="absolute inset-0 bg-slate-900/40 backdrop-blur-xs"
+            ></div>
+            
+            <div className="bg-white border border-slate-200 rounded-lg shadow-2xl max-w-md w-full relative z-[101] overflow-hidden flex flex-col font-sans text-xs">
+              
+              <button 
+                onClick={() => {
+                  setShowImportModal(false);
+                  resetImportUploader();
+                }}
+                className="absolute right-4 top-4 text-slate-400 hover:text-slate-655 p-1 hover:bg-slate-100 rounded"
+                aria-label="Close modal"
+              >
+                <X className="w-4 h-4" />
+              </button>
+
+              <div className="px-6 pt-6 pb-4 border-b border-slate-100 bg-slate-50/50">
+                <span className="text-[10px] font-bold text-navy-800 tracking-wider uppercase">CSV Bulk Uploader</span>
+                <h3 className="text-base font-bold text-slate-900 mt-1">Upload Questions Spreadsheet</h3>
+              </div>
+
+              <div className="p-6 space-y-4">
+                {uploadedFile === null ? (
+                  <>
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Quickly add multiple coding questions at once by uploading an institutional CSV file.
+                    </p>
+
+                    <input 
+                      type="file" 
+                      ref={csvInputRef}
+                      onChange={(e) => {
+                        if (e.target.files?.[0]) {
+                          handleCSVFile(e.target.files[0]);
+                        }
+                      }}
+                      accept=".csv"
+                      className="hidden"
+                    />
+
+                    {/* Drag and Drop zone */}
+                    <div 
+                      onDragOver={(e) => {
+                        e.preventDefault();
+                        setIsDragActive(true);
+                      }}
+                      onDragEnter={(e) => {
+                        e.preventDefault();
+                        setIsDragActive(true);
+                      }}
+                      onDragLeave={() => setIsDragActive(false)}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        setIsDragActive(false);
+                        if (e.dataTransfer.files?.[0]) {
+                          handleCSVFile(e.dataTransfer.files[0]);
+                        }
+                      }}
+                      onClick={() => csvInputRef.current?.click()}
+                      className={`border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-all flex flex-col items-center justify-center ${
+                        isDragActive 
+                          ? "border-blue-500 bg-blue-50/30" 
+                          : "border-slate-200 hover:border-slate-350 bg-slate-50"
+                      }`}
+                    >
+                      <FileSpreadsheet className={`w-8 h-8 mb-2 transition-colors ${isDragActive ? "text-blue-500" : "text-slate-400"}`} />
+                      <p className="font-bold text-slate-700 text-xs">Drag and drop your CSV file here</p>
+                      <p className="text-[10px] text-slate-400 mt-1">or use the button below to browse</p>
+                      
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          csvInputRef.current?.click();
+                        }}
+                        className="mt-3 bg-navy-900 hover:bg-navy-950 text-white font-bold px-3 py-1.5 rounded-md transition-all text-[10px] shadow-sm"
+                      >
+                        Choose File
+                      </button>
+
+                      <span className="text-[8px] font-bold text-slate-500 mt-3.5 uppercase tracking-wide bg-slate-200/60 border border-slate-300 px-2 py-0.5 rounded">
+                        .csv only supported
+                      </span>
+                    </div>
+
+                    {validationError && (
+                      <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded text-[10px] flex items-center gap-2 font-medium">
+                        <AlertCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
+                        <span>{validationError}</span>
+                      </div>
+                    )}
+
+                    {/* Template details */}
+                    <div className="bg-slate-50 p-3 rounded border border-slate-150 space-y-2.5 text-[10px] text-slate-650">
+                      <p className="font-bold text-slate-800 uppercase tracking-wider text-[9px]">Required Columns Schema:</p>
+                      <div className="bg-slate-100 p-2 rounded border border-slate-250 font-mono text-[8.5px] text-slate-600 break-words leading-relaxed">
+                        Question Title, Course Subject, Difficulty Rating, Question Description, Maximum Marks, Estimated Completion Time, Allowed Programming Languages, Question Status
+                      </div>
+                      
+                      <button 
+                        type="button"
+                        onClick={handleDownloadSample}
+                        className="w-full bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 font-extrabold py-2 rounded-md flex items-center justify-center gap-1.5 transition-all text-[10px]"
+                      >
+                        <Download className="w-3.5 h-3.5 text-slate-500" /> Download Sample CSV
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="bg-slate-50 p-3 rounded-lg border border-slate-200 space-y-2">
+                      <div className="flex justify-between items-center text-[10px] border-b border-slate-200 pb-1.5">
+                        <span className="text-slate-500 font-bold uppercase truncate max-w-[200px]" title={uploadedFile.name}>
+                          File: {uploadedFile.name}
+                        </span>
+                        <span className="text-slate-400 font-mono font-medium">
+                          {(uploadedFile.size / 1024).toFixed(2)} KB
+                        </span>
+                      </div>
+
+                      {/* Summary Metrics */}
+                      <div className="grid grid-cols-3 gap-2 py-1">
+                        <div className="text-center bg-white p-2 border border-slate-150 rounded">
+                          <p className="text-[8px] uppercase text-slate-400 font-bold">Total Rows</p>
+                          <p className="text-base font-extrabold text-slate-800 mt-0.5">{parsedRows.length}</p>
+                        </div>
+                        <div className="text-center bg-emerald-50/50 p-2 border border-emerald-150 rounded">
+                          <p className="text-[8px] uppercase text-emerald-650 font-bold">Valid Rows</p>
+                          <p className="text-base font-extrabold text-emerald-700 mt-0.5">{validCount}</p>
+                        </div>
+                        <div className="text-center bg-rose-50/50 p-2 border border-rose-150 rounded">
+                          <p className="text-[8px] uppercase text-rose-650 font-bold">Errors Found</p>
+                          <p className="text-base font-extrabold text-rose-750 mt-0.5">{invalidCount}</p>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Validation Error Reports scrollable list */}
+                    {invalidCount > 0 && (
+                      <div className="bg-rose-50/40 border border-rose-150 rounded-lg p-3 max-h-[140px] overflow-y-auto text-[10px] space-y-1.5 text-rose-800 leading-normal">
+                        <p className="font-extrabold uppercase tracking-wider text-[8px] border-b border-rose-200 pb-1.5 flex items-center gap-1.5 font-sans">
+                          <AlertTriangle className="w-3.5 h-3.5 text-rose-600 animate-pulse" /> 
+                          Validation Error Logs
+                        </p>
+                        {parsedRows.filter(r => !r.isValid).map(row => (
+                          <div key={row.rowNum} className="font-mono">
+                            <span className="font-bold">Row {row.rowNum}:</span>
+                            <ul className="list-disc pl-4 mt-0.5 space-y-0.5">
+                              {row.errors.map((err, i) => (
+                                <li key={i}>{err}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Actions block */}
+                    <div className="flex gap-2">
+                      {invalidCount > 0 && (
+                        <button
+                          type="button"
+                          onClick={handleDownloadErrorReport}
+                          className="flex-1 bg-white hover:bg-slate-50 border border-rose-200 text-rose-800 py-2 rounded-md font-bold transition-all flex items-center justify-center gap-1 text-[10px]"
+                        >
+                          <Download className="w-3.5 h-3.5" /> Download Error Report
+                        </button>
+                      )}
+                      
+                      <button
+                        type="button"
+                        onClick={resetImportUploader}
+                        className="flex-1 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 py-2 rounded-md font-bold transition-all text-[10px]"
+                      >
+                        Upload Another File
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
+
+              <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowImportModal(false);
+                    resetImportUploader();
+                  }}
+                  className="px-4 py-2 border border-slate-200 hover:bg-slate-100 rounded-md font-bold"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={uploadedFile === null || validCount === 0}
+                  onClick={executeImportValid}
+                  className={`px-4 py-2 text-white rounded-md font-bold transition-all ${
+                    uploadedFile === null || validCount === 0
+                      ? "bg-slate-300 text-slate-505 cursor-not-allowed border border-slate-200"
+                      : "bg-navy-900 hover:bg-navy-950"
+                  }`}
+                >
+                  Upload {validCount > 0 ? `(${validCount} Valid)` : ""}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Toast Notification overlay */}
+      {toast && (
+        <div 
+          className={`fixed bottom-6 right-6 z-[200] border text-white rounded-lg shadow-2xl px-4 py-3 flex items-center gap-2.5 animate-slide-in font-sans text-xs ${
+            toast.type === "success" 
+              ? "bg-slate-900 border-slate-800" 
+              : "bg-rose-950 border-rose-900 text-rose-200"
+          }`}
+        >
+          {toast.type === "success" ? (
+            <CheckCircle className="w-5 h-5 text-emerald-400 shrink-0" />
+          ) : (
+            <AlertCircle className="w-5 h-5 text-rose-500 shrink-0" />
+          )}
+          <div className="text-xs font-semibold">
+            {toast.message}
+          </div>
+          <button 
+            onClick={() => setToast(null)}
+            className="text-slate-400 hover:text-white font-bold ml-1.5"
+          >
+            ✕
+          </button>
         </div>
       )}
 
