@@ -159,7 +159,16 @@ export default function FacultyDashboard() {
     title: "",
     subject: "CS201: Data Structures",
     difficulty: "Medium" as const,
-    tagsString: ""
+    tagsString: "",
+    description: "",
+    coMapping: "CO1",
+    bloomsLevel: "Remember",
+    assessmentType: "Coding",
+    maxMarks: 10,
+    estimatedTime: 30,
+    allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"] as string[],
+    facultyNotes: "",
+    status: "Published"
   });
 
   // Action: Add New Exam
@@ -242,9 +251,9 @@ export default function FacultyDashboard() {
     const addedStorage = {
       id: Date.now().toString(),
       title: newQuestion.title,
-      language: newQuestion.subject.split(":")[0]?.trim() || "C++",
+      language: newQuestion.allowedLanguages.join(", ") || newQuestion.subject.split(":")[0]?.trim() || "C++",
       difficulty: newQuestion.difficulty,
-      marks: 10,
+      marks: newQuestion.maxMarks,
       topic: newQuestion.subject.split(":")[1]?.trim() || "Core",
       lastUpdated: new Date().toISOString().split("T")[0],
       status: "Active" as const,
@@ -255,7 +264,15 @@ export default function FacultyDashboard() {
       createdBy: faculty.fullName,
       createdDate: new Date().toISOString().split("T")[0],
       version: 1,
-      tags: tags
+      tags: tags,
+      description: newQuestion.description,
+      coMapping: newQuestion.coMapping,
+      bloomsLevel: newQuestion.bloomsLevel,
+      assessmentType: newQuestion.assessmentType,
+      estimatedTime: newQuestion.estimatedTime,
+      allowedLanguages: newQuestion.allowedLanguages,
+      facultyNotes: newQuestion.facultyNotes,
+      publishStatus: newQuestion.status
     };
 
     const allQuestions = [addedStorage, ...loadQuestions()];
@@ -272,7 +289,21 @@ export default function FacultyDashboard() {
 
     setQuestions([added, ...questions]);
     setShowAddQuestionModal(false);
-    setNewQuestion({ title: "", subject: "CS201: Data Structures", difficulty: "Medium", tagsString: "" });
+    setNewQuestion({ 
+      title: "", 
+      subject: "CS201: Data Structures", 
+      difficulty: "Medium", 
+      tagsString: "",
+      description: "",
+      coMapping: "CO1",
+      bloomsLevel: "Remember",
+      assessmentType: "Coding",
+      maxMarks: 10,
+      estimatedTime: 30,
+      allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"],
+      facultyNotes: "",
+      status: "Published"
+    });
   };
 
   // Action: Delete Assessment
@@ -1202,7 +1233,7 @@ export default function FacultyDashboard() {
                 <h3 className="text-base font-bold text-slate-900 mt-1">Add Custom Programming Question</h3>
               </div>
               
-              <div className="p-6 space-y-4">
+              <div className="p-6 space-y-4 max-h-[60vh] overflow-y-auto">
                 {/* Title */}
                 <div className="space-y-1">
                   <label className="block font-bold text-slate-700">Question Title *</label>
@@ -1255,6 +1286,145 @@ export default function FacultyDashboard() {
                     value={newQuestion.tagsString}
                     onChange={(e) => setNewQuestion({ ...newQuestion, tagsString: e.target.value })}
                     placeholder="e.g. List, Recursion, Stack"
+                    className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                  />
+                </div>
+
+                {/* 1. Question Description */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">Question Description *</label>
+                  <textarea
+                    required
+                    value={newQuestion.description}
+                    onChange={(e) => setNewQuestion({ ...newQuestion, description: e.target.value })}
+                    placeholder="Describe the complete question statement (supports paragraphs, bullet points, lists)..."
+                    rows={4}
+                    className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                  />
+                </div>
+
+                {/* 2 & 3. CO Mapping & Bloom's Taxonomy Level */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Learning Outcome / CO Mapping</label>
+                    <select
+                      value={newQuestion.coMapping}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, coMapping: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    >
+                      <option value="CO1">CO1</option>
+                      <option value="CO2">CO2</option>
+                      <option value="CO3">CO3</option>
+                      <option value="CO4">CO4</option>
+                      <option value="CO5">CO5</option>
+                      <option value="CO6">CO6</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Bloom's Taxonomy Level</label>
+                    <select
+                      value={newQuestion.bloomsLevel}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, bloomsLevel: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    >
+                      <option value="Remember">Remember</option>
+                      <option value="Understand">Understand</option>
+                      <option value="Apply">Apply</option>
+                      <option value="Analyze">Analyze</option>
+                      <option value="Evaluate">Evaluate</option>
+                      <option value="Create">Create</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 4 & 9. Assessment Type & Question Status */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Assessment Type</label>
+                    <select
+                      value={newQuestion.assessmentType}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, assessmentType: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    >
+                      <option value="Coding">Coding</option>
+                      <option value="Debugging">Debugging</option>
+                      <option value="MCQ">MCQ</option>
+                      <option value="Short Answer">Short Answer</option>
+                      <option value="Case Study">Case Study</option>
+                    </select>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Question Status</label>
+                    <select
+                      value={newQuestion.status}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, status: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    >
+                      <option value="Draft">Draft</option>
+                      <option value="Published">Published</option>
+                    </select>
+                  </div>
+                </div>
+
+                {/* 5 & 6. Max Marks & Estimated Completion Time */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Maximum Marks</label>
+                    <input
+                      type="number"
+                      min={0}
+                      value={newQuestion.maxMarks}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, maxMarks: parseInt(e.target.value) || 0 })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Estimated Time (Min)</label>
+                    <input
+                      type="number"
+                      min={1}
+                      value={newQuestion.estimatedTime}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, estimatedTime: parseInt(e.target.value) || 0 })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    />
+                  </div>
+                </div>
+
+                {/* 7. Allowed Programming Languages */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">Allowed Programming Languages</label>
+                  <div className="grid grid-cols-3 gap-2 p-3 border border-slate-200 rounded-md bg-slate-50/50">
+                    {["C", "C++", "Java", "Python", "JavaScript"].map((lang) => (
+                      <label key={lang} className="flex items-center gap-1.5 cursor-pointer font-medium text-slate-750">
+                        <input
+                          type="checkbox"
+                          checked={newQuestion.allowedLanguages.includes(lang)}
+                          onChange={(e) => {
+                            const isChecked = e.target.checked;
+                            const languages = isChecked
+                              ? [...newQuestion.allowedLanguages, lang]
+                              : newQuestion.allowedLanguages.filter((l) => l !== lang);
+                            setNewQuestion({ ...newQuestion, allowedLanguages: languages });
+                          }}
+                          className="rounded border-slate-300 text-navy-900 focus:ring-navy-900 w-4 h-4 cursor-pointer"
+                        />
+                        <span>{lang}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+
+                {/* 8. Faculty Notes */}
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-700">Faculty Notes (Optional)</label>
+                  <textarea
+                    value={newQuestion.facultyNotes}
+                    onChange={(e) => setNewQuestion({ ...newQuestion, facultyNotes: e.target.value })}
+                    placeholder="Provide notes visible only to faculty members..."
+                    rows={3}
                     className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
                   />
                 </div>
