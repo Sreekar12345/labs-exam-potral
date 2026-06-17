@@ -162,8 +162,7 @@ export default function FacultyDashboard() {
     description: "",
     maxMarks: 10,
     estimatedTime: 30,
-    allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"] as string[],
-    facultyNotes: ""
+    allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"] as string[]
   });
 
   // Action: Add New Exam
@@ -262,8 +261,7 @@ export default function FacultyDashboard() {
       tags: tags,
       description: newQuestion.description,
       estimatedTime: newQuestion.estimatedTime,
-      allowedLanguages: newQuestion.allowedLanguages,
-      facultyNotes: newQuestion.facultyNotes
+      allowedLanguages: newQuestion.allowedLanguages
     };
 
     const allQuestions = [addedStorage, ...loadQuestions()];
@@ -287,8 +285,7 @@ export default function FacultyDashboard() {
       description: "",
       maxMarks: 10,
       estimatedTime: 30,
-      allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"],
-      facultyNotes: ""
+      allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"]
     });
   };
 
@@ -1328,17 +1325,6 @@ export default function FacultyDashboard() {
                   </div>
                 </div>
 
-                {/* 8. Faculty Notes */}
-                <div className="space-y-1">
-                  <label className="block font-bold text-slate-700">Faculty Notes (Optional)</label>
-                  <textarea
-                    value={newQuestion.facultyNotes}
-                    onChange={(e) => setNewQuestion({ ...newQuestion, facultyNotes: e.target.value })}
-                    placeholder="Provide notes visible only to faculty members..."
-                    rows={3}
-                    className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
-                  />
-                </div>
               </div>
 
               <div className="px-6 py-4 border-t border-slate-100 bg-slate-50 flex justify-end gap-2">
