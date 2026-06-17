@@ -1155,7 +1155,7 @@ export default function AssessmentDetails({ params }: PageProps) {
                   <div className="flex items-center gap-1.5 text-slate-400 font-bold border-b border-slate-850 pb-1 mb-1.5 uppercase tracking-wider text-[8px]">
                     <Terminal className="w-3.5 h-3.5" /> Compiler Diagnostics Output
                   </div>
-                  <pre className="text-slate-350 leading-relaxed whitespace-pre-wrap font-medium">
+                  <pre className="text-slate-200 leading-relaxed whitespace-pre-wrap font-medium">
                     {simConsoleOutput}
                   </pre>
                 </div>

@@ -621,9 +621,9 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       )}
 
       {/* TOP EXAM BAR */}
-      <header className="bg-slate-900 border-b border-slate-800 px-5 py-3.5 flex items-center justify-between text-xs text-slate-350 shrink-0">
+      <header className="bg-slate-900 border-b border-slate-800 px-5 py-3.5 flex items-center justify-between text-xs text-slate-300 shrink-0">
         <div className="flex items-center gap-3">
-          <span className="bg-slate-800 text-slate-350 border border-slate-700 px-2 py-0.5 rounded text-[9px] uppercase font-mono font-bold">
+          <span className="bg-slate-800 text-slate-300 border border-slate-700 px-2 py-0.5 rounded text-[9px] uppercase font-mono font-bold">
             Secure IDE
           </span>
           <div className="h-4 w-[1px] bg-slate-700"></div>
@@ -746,7 +746,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         {/* PANEL 2: CENTER QUESTION DETAIL CONTENT (col-span-5) */}
         <section className="col-span-5 bg-slate-950 border-r border-slate-900 overflow-y-auto flex flex-col justify-between h-full">
           
-          <div className="p-6 space-y-6 font-sans text-slate-350 leading-relaxed text-[11px]">
+          <div className="p-6 space-y-6 font-sans text-slate-300 leading-relaxed text-[11px]">
             
             {/* Header info */}
             <div className="space-y-2 border-b border-slate-900 pb-3">
@@ -931,7 +931,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
               {consoleTab === "output" && (
                 <div className="space-y-1">
                   <span className="text-slate-500 uppercase text-[8px] font-bold block mb-1.5 flex items-center gap-1"><Terminal className="w-3.5 h-3.5" /> Compiler Diagnostics Output</span>
-                  <pre className="text-slate-350 leading-relaxed font-mono whitespace-pre-wrap font-medium">
+                  <pre className="text-slate-200 leading-relaxed font-mono whitespace-pre-wrap font-medium">
                     {consoleOutput}
                   </pre>
                 </div>

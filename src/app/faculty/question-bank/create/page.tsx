@@ -565,13 +565,13 @@ export default function CreateQuestion() {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
                   <h4 className="text-slate-400 font-bold uppercase text-[10px] font-mono tracking-wider">Input format</h4>
-                  <p className="text-slate-350 bg-slate-900/20 p-2.5 rounded border border-slate-900">
+                  <p className="text-slate-300 bg-slate-900/20 p-2.5 rounded border border-slate-900">
                     {inputFormat || "Format check..."}
                   </p>
                 </div>
                 <div className="space-y-1.5">
                   <h4 className="text-slate-400 font-bold uppercase text-[10px] font-mono tracking-wider">Output format</h4>
-                  <p className="text-slate-350 bg-slate-900/20 p-2.5 rounded border border-slate-900">
+                  <p className="text-slate-300 bg-slate-900/20 p-2.5 rounded border border-slate-900">
                     {outputFormat || "Format check..."}
                   </p>
                 </div>
@@ -580,7 +580,7 @@ export default function CreateQuestion() {
               {/* Constraints */}
               <div className="space-y-2">
                 <h4 className="text-slate-400 font-bold uppercase text-[10px] font-mono tracking-wider">Constraints</h4>
-                <p className="text-slate-350 font-mono bg-slate-900/20 p-2.5 rounded border border-slate-900">
+                <p className="text-slate-300 font-mono bg-slate-900/20 p-2.5 rounded border border-slate-900">
                   {constraints || "Constraints list..."}
                 </p>
               </div>
@@ -600,7 +600,7 @@ export default function CreateQuestion() {
                   {explanation && (
                     <div className="pt-2 border-t border-slate-800">
                       <span className="text-slate-500">Explanation:</span>
-                      <p className="text-slate-350 mt-0.5 leading-normal">{explanation}</p>
+                      <p className="text-slate-300 mt-0.5 leading-normal">{explanation}</p>
                     </div>
                   )}
                 </div>
