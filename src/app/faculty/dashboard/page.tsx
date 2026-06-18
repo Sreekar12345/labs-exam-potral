@@ -40,7 +40,8 @@ import {
   loadQuestions, 
   saveQuestions, 
   resetPlatformData, 
-  loadFacultyProfile 
+  loadFacultyProfile,
+  FacultyProfile
 } from "@/lib/storage";
 
 import FacultySidebar from "@/components/faculty-sidebar";
@@ -83,6 +84,7 @@ export default function FacultyDashboard() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState("dashboard");
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
 
   // Toggle Empty State Previews
   const [showEmptyAssessments, setShowEmptyAssessments] = useState(false);
@@ -443,11 +445,30 @@ export default function FacultyDashboard() {
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [students, setStudents] = useState<Student[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+
+  // Derived Dynamic Statistics
+  const totalStudentsCount = students.length;
+  const totalAssessmentsCount = assessments.length;
+  const activeExamsCount = assessments.filter(a => a.status === "In Progress").length;
+  const completedExamsCount = assessments.filter(a => a.status === "Completed").length;
+
+  const totalQuestionsCount = questions.length;
+  const codingCoreQuestionsCount = questions.filter(q => q.subject.toLowerCase().includes("structures") || q.subject.toLowerCase().includes("algorithm") || q.subject.toLowerCase().includes("code") || q.subject.toLowerCase().includes("python") || q.subject.toLowerCase().includes("java") || q.subject.toLowerCase().includes("programming")).length;
+  const addedRecentlyQuestionsCount = questions.length > 0 ? Math.min(12, questions.length) : 0;
+  const frequentlyUsedQuestionsCount = questions.filter(q => q.usageCount > 0).length;
+
+  const activeTelemetryStudents = activeExamsCount > 0 ? 64 : 0;
+  const activeTelemetryRooms = activeExamsCount > 0 ? "1 active room" : "0 active rooms";
+  const activeTelemetrySubmissions = activeExamsCount > 0 ? "42 compiled" : "0 compiled";
+  const activeTelemetryWarnings = activeExamsCount > 0 ? "6 incidents flagged" : "0 incidents flagged";
   
-  const [faculty, setFaculty] = useState({
+  const [faculty, setFaculty] = useState<FacultyProfile>({
     fullName: "Dr. Ramesh Sharma",
     department: "CSE",
-    designation: "Professor & HOD"
+    designation: "Professor & HOD",
+    employeeId: "FAC_102",
+    email: "rama@psgtech.edu",
+    collegeName: "PSG College of Technology"
   });
 
   // Load from local storage inside mount effect
@@ -491,6 +512,8 @@ export default function FacultyDashboard() {
     subject: "",
     duration: "180 mins",
     assignedCount: 60,
+    date: "2026-06-20",
+    time: "10:00",
     status: "Scheduled" as const
   });
 
@@ -511,7 +534,9 @@ export default function FacultyDashboard() {
     description: "",
     maxMarks: 10,
     estimatedTime: 30,
-    allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"] as string[]
+    allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"] as string[],
+    sampleInput: "",
+    sampleOutput: ""
   });
 
   // Action: Add New Exam
@@ -520,6 +545,37 @@ export default function FacultyDashboard() {
     if (!newExam.name || !newExam.subject) return;
 
     const durationNum = parseInt(newExam.duration) || 180;
+
+    // Format the date selected by the user
+    const formattedDate = (() => {
+      if (!newExam.date) return "June 20, 2026";
+      const parts = newExam.date.split("-");
+      if (parts.length !== 3) return newExam.date;
+      const year = parts[0];
+      const monthIdx = parseInt(parts[1]) - 1;
+      const day = parseInt(parts[2]);
+      const months = [
+        "Jan", "Feb", "Mar", "Apr", "May", "June",
+        "July", "Aug", "Sept", "Oct", "Nov", "Dec"
+      ];
+      return `${months[monthIdx]} ${day}, ${year}`;
+    })();
+
+    // Format the time selected by the user
+    const formattedTime = (() => {
+      if (!newExam.time) return "10:00 AM";
+      const parts = newExam.time.split(":");
+      if (parts.length < 2) return newExam.time;
+      let hours = parseInt(parts[0]);
+      const minutes = parts[1];
+      const ampm = hours >= 12 ? "PM" : "AM";
+      hours = hours % 12;
+      hours = hours ? hours : 12; // the hour '0' should be '12'
+      return `${hours.toString().padStart(2, '0')}:${minutes} ${ampm}`;
+    })();
+
+    const combinedDateTime = `${formattedDate}, ${formattedTime}`;
+
     const storageExam = {
       id: Date.now().toString(),
       name: newExam.name,
@@ -529,7 +585,7 @@ export default function FacultyDashboard() {
       assignedCount: newExam.assignedCount,
       status: "Scheduled" as const,
       createdDate: new Date().toISOString().split("T")[0],
-      date: "June 20, 2026"
+      date: combinedDateTime
     };
 
     const allExams = [storageExam, ...loadAssessments()];
@@ -547,7 +603,7 @@ export default function FacultyDashboard() {
 
     setAssessments([created, ...assessments]);
     setShowCreateExamModal(false);
-    setNewExam({ name: "", subject: "", duration: "180 mins", assignedCount: 60, status: "Scheduled" });
+    setNewExam({ name: "", subject: "", duration: "180 mins", assignedCount: 60, date: "2026-06-20", time: "10:00", status: "Scheduled" });
     
     // Redirect to Question Bank to add questions
     router.push(`/faculty/question-bank?action=add-questions&assessmentId=${storageExam.id}&assessmentName=${encodeURIComponent(storageExam.name)}`);
@@ -613,7 +669,9 @@ export default function FacultyDashboard() {
       tags: tags,
       description: newQuestion.description,
       estimatedTime: newQuestion.estimatedTime,
-      allowedLanguages: newQuestion.allowedLanguages
+      allowedLanguages: newQuestion.allowedLanguages,
+      sampleInput: newQuestion.sampleInput,
+      sampleOutput: newQuestion.sampleOutput
     };
 
     const allQuestions = [addedStorage, ...loadQuestions()];
@@ -637,7 +695,9 @@ export default function FacultyDashboard() {
       description: "",
       maxMarks: 10,
       estimatedTime: 30,
-      allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"]
+      allowedLanguages: ["C", "C++", "Java", "Python", "JavaScript"],
+      sampleInput: "",
+      sampleOutput: ""
     });
   };
 
@@ -728,17 +788,60 @@ export default function FacultyDashboard() {
           </div>
 
           {/* User profile dropdown menu */}
-          <div className="flex items-center gap-4">
-            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
-              PSG Tech Node
-            </span>
-            <div className="text-right hidden sm:block border-r border-slate-200 pr-3">
-              <p className="font-bold text-slate-800">{faculty.fullName}</p>
-              <p className="text-[10px] text-slate-400 font-medium">{faculty.designation} • Department of {faculty.department}</p>
+          <div className="relative">
+            <div 
+              onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+              className="flex items-center gap-4 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
+            >
+              <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
+                PSG Tech Node
+              </span>
+              <div className="text-right hidden sm:block border-r border-slate-200 pr-3">
+                <p className="font-bold text-slate-800">{faculty.fullName}</p>
+                <p className="text-[10px] text-slate-400 font-medium">{faculty.designation} • Department of {faculty.department}</p>
+              </div>
+              <div className="bg-navy-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs">
+                {faculty.fullName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "FC"}
+              </div>
             </div>
-            <div className="bg-navy-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">
-              {faculty.fullName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "FC"}
-            </div>
+
+            {showProfileDropdown && (
+              <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-4 px-4 z-50 text-xs font-sans text-slate-700 space-y-3">
+                <div className="border-b border-slate-150 pb-2">
+                  <p className="font-extrabold text-slate-900 text-sm">{faculty.fullName}</p>
+                  <p className="text-[10px] text-slate-400 font-medium mt-0.5">{faculty.designation}</p>
+                </div>
+                <div className="space-y-2 font-mono text-[10px]">
+                  <div className="flex justify-between">
+                    <span className="text-slate-450">Employee ID:</span>
+                    <span className="text-slate-800 font-bold">{faculty.employeeId || "FAC_102"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450">Email:</span>
+                    <span className="text-slate-850 font-medium">{faculty.email || "rama@psgtech.edu"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450">Department:</span>
+                    <span className="text-slate-800 font-bold">{faculty.department || "CSE"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-450">Institution:</span>
+                    <span className="text-slate-800 font-medium">{faculty.collegeName || "PSG College of Technology"}</span>
+                  </div>
+                </div>
+                <div className="border-t border-slate-150 pt-2 flex justify-end">
+                  <button 
+                    onClick={() => {
+                      localStorage.removeItem("examcoder_auth_token");
+                      router.push("/faculty/login");
+                    }}
+                    className="text-rose-600 hover:text-rose-700 font-bold hover:underline"
+                  >
+                    Logout
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </header>
 
@@ -757,7 +860,7 @@ export default function FacultyDashboard() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Total Students</p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">132</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{totalStudentsCount}</p>
                   </div>
                 </div>
 
@@ -767,7 +870,7 @@ export default function FacultyDashboard() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Total Assessments</p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">12</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{totalAssessmentsCount}</p>
                   </div>
                 </div>
 
@@ -777,7 +880,7 @@ export default function FacultyDashboard() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Active Exams</p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">1</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{activeExamsCount}</p>
                   </div>
                 </div>
 
@@ -787,7 +890,7 @@ export default function FacultyDashboard() {
                   </div>
                   <div>
                     <p className="text-slate-500 text-[10px] font-bold uppercase tracking-wider">Completed Exams</p>
-                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">11</p>
+                    <p className="text-2xl font-extrabold text-slate-900 mt-0.5">{completedExamsCount}</p>
                   </div>
                 </div>
               </div>
@@ -876,19 +979,19 @@ export default function FacultyDashboard() {
                     <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
                       <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs">
                         <p className="text-slate-400 font-semibold uppercase text-[9px]">Total Questions</p>
-                        <p className="text-xl font-extrabold text-slate-900 mt-1">124</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-1">{totalQuestionsCount}</p>
                       </div>
                       <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs">
                         <p className="text-slate-400 font-semibold uppercase text-[9px]">Coding Core</p>
-                        <p className="text-xl font-extrabold text-slate-900 mt-1">92</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-1">{codingCoreQuestionsCount}</p>
                       </div>
                       <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs">
                         <p className="text-slate-400 font-semibold uppercase text-[9px]">Added (30d)</p>
-                        <p className="text-xl font-extrabold text-slate-900 mt-1">12</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-1">{addedRecentlyQuestionsCount}</p>
                       </div>
                       <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs">
                         <p className="text-slate-400 font-semibold uppercase text-[9px]">Frequently Used</p>
-                        <p className="text-xl font-extrabold text-slate-900 mt-1">28</p>
+                        <p className="text-xl font-extrabold text-slate-900 mt-1">{frequentlyUsedQuestionsCount}</p>
                       </div>
                     </div>
                   </div>
@@ -941,26 +1044,22 @@ export default function FacultyDashboard() {
                   <div className="bg-white border border-slate-200 rounded-lg p-4 space-y-3 shadow-2xs">
                     <h3 className="font-bold text-slate-900 text-xs uppercase tracking-wider">Upcoming assessments</h3>
                     <div className="divide-y divide-slate-100">
-                      <div className="py-2.5 flex items-center justify-between text-xs">
-                        <div>
-                          <p className="font-bold text-slate-900">IT305 Object Oriented Lab</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Assigned: IT Section B • 120m</p>
-                        </div>
-                        <div className="text-right text-[10px] font-bold text-slate-750 font-mono">
-                          <p>June 18</p>
-                          <p className="text-slate-400 mt-0.5">02:00 PM</p>
-                        </div>
-                      </div>
-                      <div className="py-2.5 flex items-center justify-between text-xs">
-                        <div>
-                          <p className="font-bold text-slate-900">CS304 Design & Analysis</p>
-                          <p className="text-[10px] text-slate-500 mt-0.5">Assigned: CSE Section C • 180m</p>
-                        </div>
-                        <div className="text-right text-[10px] font-bold text-slate-750 font-mono">
-                          <p>June 21</p>
-                          <p className="text-slate-400 mt-0.5">10:00 AM</p>
-                        </div>
-                      </div>
+                      {assessments.filter(a => a.status === "Scheduled").length > 0 ? (
+                        assessments.filter(a => a.status === "Scheduled").slice(0, 2).map((asm) => (
+                          <div key={asm.id} className="py-2.5 flex items-center justify-between text-xs">
+                            <div>
+                              <p className="font-bold text-slate-900">{asm.name}</p>
+                              <p className="text-[10px] text-slate-500 mt-0.5">Assigned: {asm.subject} • {asm.duration}</p>
+                            </div>
+                            <div className="text-right text-[10px] font-bold text-slate-750 font-mono">
+                              <p>{asm.date.split(",")[0]}</p>
+                              <p className="text-slate-400 mt-0.5">{asm.date.split(",")[1]?.trim() || "10:00 AM"}</p>
+                            </div>
+                          </div>
+                        ))
+                      ) : (
+                        <p className="text-slate-400 py-2.5 text-center">No upcoming assessments scheduled.</p>
+                      )}
                     </div>
                   </div>
 
@@ -970,19 +1069,19 @@ export default function FacultyDashboard() {
                     <div className="space-y-2 bg-slate-50 p-3 rounded border border-slate-150 font-mono text-[10px] text-slate-600">
                       <div className="flex justify-between">
                         <span>Active Students:</span>
-                        <span className="text-slate-900 font-bold">64 candidates</span>
+                        <span className="text-slate-900 font-bold">{activeTelemetryStudents} candidates</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Ongoing Exams:</span>
-                        <span className="text-slate-900 font-bold">1 active room</span>
+                        <span className="text-slate-900 font-bold">{activeTelemetryRooms}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Recent Submissions:</span>
-                        <span className="text-emerald-700 font-bold">42 compiled</span>
+                        <span className="text-emerald-700 font-bold">{activeTelemetrySubmissions}</span>
                       </div>
                       <div className="flex justify-between border-t border-slate-200/60 pt-1.5 mt-1.5">
                         <span>Proctor Warnings:</span>
-                        <span className="text-rose-700 font-bold">6 incidents flagged</span>
+                        <span className="text-rose-700 font-bold">{activeTelemetryWarnings}</span>
                       </div>
                     </div>
                   </div>
@@ -1327,6 +1426,8 @@ export default function FacultyDashboard() {
                         <option>2 seconds</option>
                         <option>5 seconds (Default)</option>
                         <option>10 seconds</option>
+                        <option>30 seconds</option>
+                        <option>60 seconds</option>
                       </select>
                       <p className="text-[10px] text-slate-400">Halts infinite loop solutions automatically.</p>
                     </div>
@@ -1429,15 +1530,43 @@ export default function FacultyDashboard() {
                   </div>
                 </div>
 
-                {/* Slots */}
-                <div className="space-y-1">
-                  <label className="block font-bold text-slate-700">Roster slots allocation</label>
-                  <input
-                    type="number"
-                    value={newExam.assignedCount}
-                    onChange={(e) => setNewExam({ ...newExam, assignedCount: Number(e.target.value) })}
-                    className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Slots */}
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Roster slots allocation</label>
+                    <input
+                      type="number"
+                      value={newExam.assignedCount}
+                      onChange={(e) => setNewExam({ ...newExam, assignedCount: Number(e.target.value) })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    />
+                  </div>
+
+                  {/* Exam Date */}
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Exam Date *</label>
+                    <input
+                      type="date"
+                      required
+                      value={newExam.date}
+                      onChange={(e) => setNewExam({ ...newExam, date: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Exam Time */}
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700">Exam Time *</label>
+                    <input
+                      type="time"
+                      required
+                      value={newExam.time}
+                      onChange={(e) => setNewExam({ ...newExam, time: e.target.value })}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -1603,6 +1732,9 @@ export default function FacultyDashboard() {
                       <option value="IT305: OOPs">OOPs Concepts</option>
                       <option value="CS304: Algorithms">Design & Algorithms</option>
                       <option value="CS203: DBMS">Database Systems</option>
+                      <option value="CS101: Python">Python Programming</option>
+                      <option value="CS102: Java">Java Programming</option>
+                      <option value="CS103: C/C++">C/C++ Programming</option>
                     </select>
                   </div>
 
@@ -1682,6 +1814,32 @@ export default function FacultyDashboard() {
                         <span>{lang}</span>
                       </label>
                     ))}
+                  </div>
+                </div>
+
+                {/* 8. Input and Expected Outcome */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700 font-sans">Sample Input</label>
+                    <textarea
+                      value={newQuestion.sampleInput}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, sampleInput: e.target.value })}
+                      placeholder="e.g. root = [4,2,7]"
+                      rows={2}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-navy-900 font-mono text-[10px] resize-y"
+                    />
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="block font-bold text-slate-700 font-sans">Expected Outcome *</label>
+                    <textarea
+                      required
+                      value={newQuestion.sampleOutput}
+                      onChange={(e) => setNewQuestion({ ...newQuestion, sampleOutput: e.target.value })}
+                      placeholder="e.g. [4,7,2]"
+                      rows={2}
+                      className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-1.5 focus:outline-hidden focus:ring-1 focus:ring-navy-900 font-mono text-[10px] resize-y"
+                    />
                   </div>
                 </div>
 

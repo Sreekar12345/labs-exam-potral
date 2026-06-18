@@ -15,8 +15,11 @@ import {
   Maximize2,
   ChevronRight,
   ShieldAlert,
+  ShieldCheck,
   ArrowLeft
 } from "lucide-react";
+
+import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents } from "@/lib/storage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -50,66 +53,44 @@ interface MockQuestion {
   };
 }
 
+const PLACEHOLDER_QUESTION: MockQuestion = {
+  id: "placeholder",
+  title: "Loading question...",
+  difficulty: "Medium",
+  topic: "Loading",
+  marks: 0,
+  description: "Please wait while the assessment questions are loading from the database...",
+  inputFormat: "Loading...",
+  outputFormat: "Loading...",
+  constraints: "Loading...",
+  sampleInput: "",
+  sampleOutput: "",
+  codeBoilerplate: {
+    cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // solve\n    return 0;\n}`,
+    java: `// Language: Java 17\nclass Solution {\n    public static void main(String[] args) {\n        // solve\n    }\n}`,
+    python: `# Language: Python 3.10\ndef solve():\n    pass\n\nsolve()`
+  }
+};
+
 export default function StudentExamWorkspace({ params }: PageProps) {
   const { id } = use(params);
   const router = useRouter();
 
-  // Mock Exam details
-  const examData = {
+  // Dynamic Exam details
+  const [examData, setExamData] = useState({
     id: id || "1",
-    name: id === "1" ? "Data Structures Practical Lab Exam" :
-          id === "2" ? "Object Oriented Programming Laboratory" :
-          "CS101 Programming Foundations Examination",
-    subject: id === "1" ? "CS201" : id === "2" ? "IT305" : "CS101",
-    duration: id === "1" ? 180 : id === "2" ? 120 : 120,
-    totalMarks: id === "1" ? 50 : id === "2" ? 40 : 50
-  };
+    name: "Loading Examination Details...",
+    subject: "...",
+    duration: 180,
+    totalMarks: 50
+  });
 
-  // List of mock questions matching this exam
-  const examQuestions: MockQuestion[] = [
-    {
-      id: "q1",
-      title: "Invert a Binary Tree",
-      difficulty: "Medium",
-      topic: "Data Structures",
-      marks: 15,
-      description: "Given the root of a binary tree, invert the tree, and return its root. Inverting a binary tree means exchanging left and right subtrees of every node.",
-      inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal format.",
-      outputFormat: "Output the level-order traversal array of the inverted binary tree.",
-      constraints: "Number of nodes in the tree is in range [0, 1000].\nNode values range from -100 to 100.",
-      sampleInput: "4 2 7 1 3 6 9",
-      sampleOutput: "4 7 2 9 6 3 1",
-      codeBoilerplate: {
-        cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nstruct TreeNode {\n    int val;\n    TreeNode *left, *right;\n    TreeNode(int x) : val(x), left(NULL), right(NULL) {}\n};\n\nTreeNode* invertTree(TreeNode* root) {\n    // Write your code here\n    if (root == NULL) return NULL;\n    TreeNode* temp = root->left;\n    root->left = invertTree(root->right);\n    root->right = invertTree(temp);\n    return root;\n}`,
-        java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public TreeNode invertTree(TreeNode root) {\n        // Write your code here\n        if (root == null) return null;\n        TreeNode temp = root.left;\n        root.left = invertTree(root.right);\n        root.right = invertTree(temp);\n        return root;\n    }\n}`,
-        python: `# Language: Python 3.10\nclass Solution:\n    def invertTree(self, root: Optional[TreeNode]) -> Optional[TreeNode]:\n        # Write your code here\n        if not root:\n            return None\n        root.left, root.right = self.invertTree(root.right), self.invertTree(root.left)\n        return root`
-      }
-    },
-    {
-      id: "q2",
-      title: "Validate Binary Search Tree",
-      difficulty: "Medium",
-      topic: "Data Structures",
-      marks: 15,
-      description: "Given the root of a binary tree, determine if it is a valid binary search tree (BST).",
-      inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal.",
-      outputFormat: "Output 'true' if the tree is a valid BST, otherwise output 'false'.",
-      constraints: "Number of nodes is in range [1, 10000].\nNode values range from -2^31 to 2^31 - 1.",
-      sampleInput: "2 1 3",
-      sampleOutput: "true",
-      codeBoilerplate: {
-        cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nbool isValidBST(TreeNode* root) {\n    // Write your code here\n    return true;\n}`,
-        java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public boolean isValidBST(TreeNode root) {\n        // Write your code here\n        return true;\n    }\n}`,
-        python: `# Language: Python 3.10\nclass Solution:\n    def isValidBST(self, root: Optional[TreeNode]) -> bool:\n        # Write your code here\n        return True`
-      }
-    }
-  ];
-
-  // Active workspace state
-  const [selectedQuestion, setSelectedQuestion] = useState<MockQuestion>(examQuestions[0]);
+  // List of active questions
+  const [examQuestions, setExamQuestions] = useState<MockQuestion[]>([PLACEHOLDER_QUESTION]);
+  const [selectedQuestion, setSelectedQuestion] = useState<MockQuestion>(PLACEHOLDER_QUESTION);
   const [selectedLanguage, setSelectedLanguage] = useState<"cpp" | "java" | "python">("python");
-  const [codeContent, setCodeContent] = useState(examQuestions[0].codeBoilerplate.python);
-  const [timerString, setTimerString] = useState(examData.id === "1" ? "02:59:45" : "01:59:45");
+  const [codeContent, setCodeContent] = useState(PLACEHOLDER_QUESTION.codeBoilerplate.python);
+  const [timerString, setTimerString] = useState("03:00:00");
   const [isRunning, setIsRunning] = useState(false);
   const [showConsole, setShowConsole] = useState(true);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([
@@ -121,11 +102,70 @@ export default function StudentExamWorkspace({ params }: PageProps) {
   const [warningsCount, setWarningsCount] = useState(0);
   const [showWarningModal, setShowWarningModal] = useState(false);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [testCases, setTestCases] = useState<TestCase[]>([
     { id: 1, input: "root = [4,2,7,1,3,6,9]", expected: "[4,7,2,9,6,3,1]", status: "unrun", isHidden: false },
     { id: 2, input: "root = [2,1,3]", expected: "[2,3,1]", status: "unrun", isHidden: false },
     { id: 3, input: "[Hidden System Test Case]", expected: "[Output Verification Hash Verified]", status: "unrun", isHidden: true }
   ]);
+
+  // Synchronize dynamic lists and parameters on mount/update
+  useEffect(() => {
+    const assessments = loadAssessments();
+    const found = assessments.find(a => a.id === id);
+    const allQuestions = loadQuestions();
+
+    if (found) {
+      setExamData({
+        id: found.id,
+        name: found.name,
+        subject: found.subject,
+        duration: found.duration,
+        totalMarks: found.questionsCount * 15
+      });
+
+      const hr = Math.floor(found.duration / 60);
+      const min = found.duration % 60;
+      const pad = (n: number) => String(n).padStart(2, "0");
+      setTimerString(`${pad(hr)}:${pad(min)}:00`);
+
+      const limit = found.questionsCount;
+      const selected = allQuestions.slice(0, limit);
+
+      if (selected.length > 0) {
+        const mapped = selected.map((q) => {
+          const templates = (q.codeTemplates as any) || {
+            cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}`,
+            java: `// Language: Java\nclass Solution {\n    public static void main(String[] args) {}\n}`,
+            python: `# Language: Python 3.10\ndef solve():\n    pass\n\nsolve()`
+          };
+
+          return {
+            id: q.id,
+            title: q.title,
+            difficulty: (q.difficulty === "Easy" || q.difficulty === "Medium" || q.difficulty === "Hard") ? q.difficulty : "Medium",
+            topic: q.topic || "General",
+            marks: q.marks || 15,
+            description: q.description || `Problem statement for "${q.title}". Write a program in the selected language to solve the challenge.`,
+            inputFormat: q.inputFormat || "Standard keyboard console input.",
+            outputFormat: q.outputFormat || "Standard output matching problem requirements.",
+            constraints: q.constraints || "Time: 2000ms\nMemory: 256MB",
+            sampleInput: q.sampleInput || "No sample input defined.",
+            sampleOutput: q.sampleOutput || "No sample output defined.",
+            codeBoilerplate: {
+              cpp: templates.cpp || templates.c || `// C++17\n`,
+              java: templates.java || `// Java\n`,
+              python: templates.python || `# Python\n`
+            }
+          };
+        });
+
+        setExamQuestions(mapped);
+        setSelectedQuestion(mapped[0]);
+        setCodeContent(mapped[0].codeBoilerplate.python);
+      }
+    }
+  }, [id]);
 
   // Synchronize boilerplate code when switching languages/questions
   const handleQuestionChange = (q: MockQuestion) => {
@@ -208,6 +248,17 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     if (nextCount >= 3) {
       setShowSuspendModal(true);
       setShowWarningModal(false);
+      
+      try {
+        const profile = loadStudentProfile();
+        if (profile && profile.roll) {
+          const studentsList = loadStudents();
+          const updated = studentsList.map(s => s.roll === profile.roll ? { ...s, status: "Suspended" as const } : s);
+          saveStudents(updated);
+        }
+      } catch (err) {
+        console.error("Failed to update student suspension status:", err);
+      }
     } else {
       setShowWarningModal(true);
     }
@@ -249,14 +300,16 @@ export default function StudentExamWorkspace({ params }: PageProps) {
   };
 
   const handleSubmitAssessment = () => {
-    const confirmSubmit = window.confirm("Are you sure you want to finalize and submit this assessment? This will lock all edits.");
-    if (confirmSubmit) {
-      if (document.fullscreenElement) {
-        document.exitFullscreen().catch(() => {});
-      }
-      alert("Practical lab assessment submitted successfully! Your code has been registered on the grader database.");
-      router.push("/student/dashboard");
+    setShowSubmitModal(true);
+  };
+
+  const confirmAndSubmitAssessment = () => {
+    setShowSubmitModal(false);
+    if (document.fullscreenElement) {
+      document.exitFullscreen().catch(() => {});
     }
+    alert("Practical lab assessment submitted successfully! Your code has been registered on the grader database.");
+    router.push("/student/dashboard");
   };
 
   return (
@@ -568,6 +621,49 @@ export default function StudentExamWorkspace({ params }: PageProps) {
               >
                 Return to Dashboard
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submit Assessment Confirmation Dialog Popup */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 text-slate-100 max-w-sm w-full rounded-lg shadow-2xl overflow-hidden text-xs leading-relaxed animate-in zoom-in-95 duration-200 font-sans">
+            <div className="bg-slate-950 px-4 py-3 text-slate-200 border-b border-slate-800 flex items-center gap-2 font-sans font-bold">
+              <ShieldCheck className="w-5 h-5 text-emerald-400" />
+              <h5 className="font-extrabold text-sm uppercase tracking-wide">Finalize & Submit Exam</h5>
+            </div>
+            
+            <div className="p-5 space-y-4 font-sans text-slate-300">
+              <p className="font-bold text-slate-200 text-sm">
+                Submit this practical lab assessment?
+              </p>
+              
+              <p className="text-slate-400">
+                Are you sure you want to finalize and submit this assessment? This will lock all edits across all problem sheets.
+              </p>
+
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded font-mono text-[9px] text-slate-400 space-y-1">
+                <p>• Action: Submit All Questions</p>
+                <p>• Lock Target: All code files</p>
+                <p>• Redirect: Student Dashboard</p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3.5 py-2 rounded font-bold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmAndSubmitAssessment}
+                  className="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded font-bold transition-all"
+                >
+                  Confirm & Submit
+                </button>
+              </div>
             </div>
           </div>
         </div>

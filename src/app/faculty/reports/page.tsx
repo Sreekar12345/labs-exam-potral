@@ -2,15 +2,21 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowLeft, Menu } from "lucide-react";
 import ReportsDashboardView from "@/components/reports-dashboard-view";
-import { loadFacultyProfile } from "@/lib/storage";
+import { loadFacultyProfile, FacultyProfile } from "@/lib/storage";
 
 export default function ReportsDashboardPage() {
-  const [faculty, setFaculty] = useState({
+  const router = useRouter();
+  const [showProfileDropdown, setShowProfileDropdown] = useState(false);
+  const [faculty, setFaculty] = useState<FacultyProfile>({
     fullName: "Dr. Ramesh Sharma",
     department: "CSE",
-    designation: "Professor & HOD"
+    designation: "Professor & HOD",
+    employeeId: "FAC_102",
+    email: "rama@psgtech.edu",
+    collegeName: "PSG College of Technology"
   });
 
   useEffect(() => {
@@ -34,17 +40,60 @@ export default function ReportsDashboardPage() {
         </div>
 
         {/* User profile details */}
-        <div className="flex items-center gap-4">
-          <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
-            PSG Tech Node
-          </span>
-          <div className="text-right hidden sm:block border-r border-slate-200 pr-3">
-            <p className="font-bold text-slate-800">{faculty.fullName}</p>
-            <p className="text-[10px] text-slate-400 font-medium">{faculty.designation} • Department of {faculty.department}</p>
+        <div className="relative">
+          <div 
+            onClick={() => setShowProfileDropdown(!showProfileDropdown)}
+            className="flex items-center gap-4 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
+          >
+            <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
+              PSG Tech Node
+            </span>
+            <div className="text-right hidden sm:block border-r border-slate-200 pr-3">
+              <p className="font-bold text-slate-800">{faculty.fullName}</p>
+              <p className="text-[10px] text-slate-400 font-medium">{faculty.designation} • Department of {faculty.department}</p>
+            </div>
+            <div className="bg-navy-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shadow-2xs">
+              {faculty.fullName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "FC"}
+            </div>
           </div>
-          <div className="bg-navy-900 text-white w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs">
-            {faculty.fullName.split(" ").filter(Boolean).map(n => n[0]).join("").slice(0, 2).toUpperCase() || "FC"}
-          </div>
+
+          {showProfileDropdown && (
+            <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-lg shadow-lg py-4 px-4 z-50 text-xs font-sans text-slate-700 space-y-3">
+              <div className="border-b border-slate-150 pb-2">
+                <p className="font-extrabold text-slate-900 text-sm">{faculty.fullName}</p>
+                <p className="text-[10px] text-slate-400 font-medium mt-0.5">{faculty.designation}</p>
+              </div>
+              <div className="space-y-2 font-mono text-[10px]">
+                <div className="flex justify-between">
+                  <span className="text-slate-455">Employee ID:</span>
+                  <span className="text-slate-800 font-bold">{faculty.employeeId || "FAC_102"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-455">Email:</span>
+                  <span className="text-slate-850 font-medium">{faculty.email || "rama@psgtech.edu"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-455">Department:</span>
+                  <span className="text-slate-800 font-bold">{faculty.department || "CSE"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-455">Institution:</span>
+                  <span className="text-slate-800 font-medium">{faculty.collegeName || "PSG College of Technology"}</span>
+                </div>
+              </div>
+              <div className="border-t border-slate-150 pt-2 flex justify-end">
+                <button 
+                  onClick={() => {
+                    localStorage.removeItem("examcoder_auth_token");
+                    router.push("/faculty/login");
+                  }}
+                  className="text-rose-600 hover:text-rose-700 font-bold hover:underline"
+                >
+                  Logout
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </header>
 

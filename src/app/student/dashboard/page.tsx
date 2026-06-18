@@ -36,19 +36,88 @@ interface MockExam {
   syllabus?: string;
 }
 
+function isSameDate(scheduledDateStr: string): boolean {
+  if (!scheduledDateStr) return false;
+  
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  const cleanStr = scheduledDateStr.trim().toLowerCase();
+  
+  if (cleanStr.includes("/")) {
+    const parts = cleanStr.split("/");
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  if (cleanStr.includes("-")) {
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  ];
+  const fullMonths = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+
+  try {
+    const parsedDate = new Date(scheduledDateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      return todayYear === parsedDate.getFullYear() &&
+             todayMonth === parsedDate.getMonth() &&
+             todayDay === parsedDate.getDate();
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const words = cleanStr.replace(/,/g, "").split(/\s+/);
+  if (words.length >= 3) {
+    const year = parseInt(words.find(w => w.length === 4 && !isNaN(Number(w))) || "", 10);
+    const day = parseInt(words.find(w => w.length <= 2 && !isNaN(Number(w))) || "", 10);
+    const monthWord = words.find(w => isNaN(Number(w))) || "";
+    let monthIdx = -1;
+    for (let i = 0; i < 12; i++) {
+      if (monthWord.startsWith(months[i]) || monthWord.startsWith(fullMonths[i])) {
+        monthIdx = i;
+        break;
+      }
+    }
+
+    if (!isNaN(year) && !isNaN(day) && monthIdx !== -1) {
+      return todayYear === year && todayMonth === monthIdx && todayDay === day;
+    }
+  }
+
+  return false;
+}
+
 export default function StudentDashboard() {
   const router = useRouter();
-  const [emptyStateMode, setEmptyStateMode] = useState<"none" | "no-assigned" | "no-upcoming" | "no-results">("none");
-
-  // Dynamic states
+    // Dynamic states
   const [studentData, setStudentData] = useState({
-    roll: "22CSE102",
-    name: "Aditya Verma",
-    dept: "Computer Science",
-    year: "3rd Year",
-    section: "A",
-    email: "aditya.22cse@psg.edu",
-    ip: "192.168.12.104"
+    roll: "",
+    name: "",
+    dept: "",
+    year: "",
+    section: "",
+    email: "",
+    ip: ""
   });
 
   const [allExams, setAllExams] = useState<MockExam[]>([]);
@@ -63,6 +132,11 @@ export default function StudentDashboard() {
       if (a.status === "Active") status = "Active";
       else if (a.status === "Completed") status = "Completed";
       
+      // Override status to Upcoming if today is not the scheduled date of the exam
+      if (status === "Active" && !isSameDate(a.date)) {
+        status = "Upcoming";
+      }
+      
       return {
         id: a.id,
         name: a.name,
@@ -71,32 +145,38 @@ export default function StudentDashboard() {
         questionsCount: a.questionsCount,
         assignedDate: a.createdDate,
         status,
-        scheduledTime: status === "Upcoming" ? "June 18, 2026, 02:00 PM" : undefined,
-        score: status === "Completed" ? "8.5 / 10.0" : undefined,
-        completionDate: status === "Completed" ? "June 15, 2026" : undefined,
+        scheduledTime: status === "Upcoming" ? a.date : undefined,
+        score: status === "Completed" ? "8.5 / 10.0" : undefined, // Simulated grade for completed exams mapping
+        completionDate: status === "Completed" ? a.date : undefined,
         syllabus: "Standard course syllabus criteria checks."
       };
     });
     setAllExams(mapped);
   }, []);
 
-  // Derive counts based on simulated empty states
-  const displayExams = allExams.filter(exam => {
-    if (emptyStateMode === "no-assigned") return false;
-    if (emptyStateMode === "no-upcoming" && exam.status === "Upcoming") return false;
-    if (emptyStateMode === "no-results" && exam.status === "Completed") return false;
-    return true;
-  });
-
+  const displayExams = allExams;
   const activeExams = displayExams.filter(e => e.status === "Active");
   const upcomingExams = displayExams.filter(e => e.status === "Upcoming");
   const completedExams = displayExams.filter(e => e.status === "Completed");
 
   // Calculate statistics
-  const totalAssigned = emptyStateMode === "no-assigned" ? 0 : allExams.length;
-  const upcomingCount = emptyStateMode === "no-assigned" || emptyStateMode === "no-upcoming" ? 0 : allExams.filter(e => e.status === "Upcoming").length;
-  const completedCount = emptyStateMode === "no-assigned" || emptyStateMode === "no-results" ? 0 : allExams.filter(e => e.status === "Completed").length;
-  const averageScore = emptyStateMode === "no-assigned" || emptyStateMode === "no-results" ? "N/A" : "9.0 / 10.0";
+  const totalAssigned = allExams.length;
+  const upcomingCount = upcomingExams.length;
+  const completedCount = completedExams.length;
+
+  // Calculate average score dynamically from completed exams
+  let scoreSum = 0;
+  let scoreCount = 0;
+  completedExams.forEach(e => {
+    if (e.score) {
+      const parsed = parseFloat(e.score.split("/")[0].trim());
+      if (!isNaN(parsed)) {
+        scoreSum += parsed;
+        scoreCount++;
+      }
+    }
+  });
+  const averageScore = scoreCount > 0 ? (scoreSum / scoreCount).toFixed(1) + " / 10.0" : "N/A";
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">
@@ -134,44 +214,6 @@ export default function StudentDashboard() {
       {/* Main Body */}
       <main className="max-w-6xl w-full mx-auto p-6 md:p-8 space-y-6 flex-1">
         
-        {/* Toggle Empty States Previews */}
-        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap gap-2 items-center justify-between">
-          <span className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Empty State Simulation Controls:</span>
-          <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
-            <button 
-              onClick={() => setEmptyStateMode("none")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "none" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Populated Dashboard
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-assigned")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-assigned" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Exams
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-upcoming")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-upcoming" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Upcoming
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-results")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-results" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Results
-            </button>
-          </div>
-        </div>
 
         {/* Security Warning Banner */}
         <div className="bg-amber-50 border border-amber-200 text-amber-900 p-4 rounded-lg flex gap-3 items-start shadow-2xs">

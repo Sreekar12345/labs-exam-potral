@@ -32,7 +32,7 @@ export default function FacultyLogin() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
@@ -40,39 +40,27 @@ export default function FacultyLogin() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      if (emailOrId.length >= 4 && password.length >= 6) {
-        const activeProfile = loadFacultyProfile();
-        
-        // If a new faculty email or ID is logged, dynamically initialize their profile session
-        if (emailOrId.includes("@") && activeProfile.email.toLowerCase() !== emailOrId.toLowerCase()) {
-          const customProfile = {
-            fullName: "Prof. " + emailOrId.split("@")[0].split(".").map(s => s.charAt(0).toUpperCase() + s.slice(1)).join(" "),
-            employeeId: "FAC_" + Math.floor(100 + Math.random() * 900),
-            email: emailOrId.toLowerCase(),
-            department: "CSE",
-            designation: "Authorized Evaluator",
-            collegeName: "PSG College of Technology"
-          };
-          saveFacultyProfile(customProfile);
-        } else if (!emailOrId.includes("@") && activeProfile.employeeId.toUpperCase() !== emailOrId.toUpperCase()) {
-          const customProfile = {
-            fullName: "Faculty Evaluator",
-            employeeId: emailOrId.toUpperCase(),
-            email: `${emailOrId.toLowerCase()}@psg.edu`,
-            department: "CSE",
-            designation: "Authorized Evaluator",
-            collegeName: "PSG College of Technology"
-          };
-          saveFacultyProfile(customProfile);
-        }
-        
+    try {
+      const res = await fetch("/api/faculty/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ emailOrId, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.status === "success") {
+        saveFacultyProfile(data.profile);
+        localStorage.setItem("examcoder_auth_token", data.token);
         router.push("/faculty/dashboard");
       } else {
         setIsLoading(false);
-        setErrors({ general: "Invalid academic credentials. Please contact your departmental coordinator." });
+        setErrors({ general: data.message || "Invalid academic credentials." });
       }
-    }, 1000);
+    } catch (err) {
+      setIsLoading(false);
+      setErrors({ general: "Failed to connect to the authentication server." });
+    }
   };
 
   return (
@@ -94,11 +82,6 @@ export default function FacultyLogin() {
           </div>
         )}
 
-        {/* Sandbox tip */}
-        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded text-[11px] text-slate-600 space-y-0.5">
-          <p className="font-bold text-slate-800">Sandbox Preview Tip:</p>
-          <p>You can enter any Faculty Email/ID and a 6-character password to access the mock faculty dashboard workspace.</p>
-        </div>
 
         {/* Faculty ID / Email Input */}
         <div className="space-y-1">

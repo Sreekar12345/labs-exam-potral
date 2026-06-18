@@ -32,12 +32,81 @@ interface MockExam {
   marks: number;
 }
 
+function isSameDate(scheduledDateStr: string): boolean {
+  if (!scheduledDateStr) return false;
+  
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  const cleanStr = scheduledDateStr.trim().toLowerCase();
+  
+  if (cleanStr.includes("/")) {
+    const parts = cleanStr.split("/");
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  if (cleanStr.includes("-")) {
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  ];
+  const fullMonths = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+
+  try {
+    const parsedDate = new Date(scheduledDateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      return todayYear === parsedDate.getFullYear() &&
+             todayMonth === parsedDate.getMonth() &&
+             todayDay === parsedDate.getDate();
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const words = cleanStr.replace(/,/g, "").split(/\s+/);
+  if (words.length >= 3) {
+    const year = parseInt(words.find(w => w.length === 4 && !isNaN(Number(w))) || "", 10);
+    const day = parseInt(words.find(w => w.length <= 2 && !isNaN(Number(w))) || "", 10);
+    const monthWord = words.find(w => isNaN(Number(w))) || "";
+    let monthIdx = -1;
+    for (let i = 0; i < 12; i++) {
+      if (monthWord.startsWith(months[i]) || monthWord.startsWith(fullMonths[i])) {
+        monthIdx = i;
+        break;
+      }
+    }
+
+    if (!isNaN(year) && !isNaN(day) && monthIdx !== -1) {
+      return todayYear === year && todayMonth === monthIdx && todayDay === day;
+    }
+  }
+
+  return false;
+}
+
 export default function StudentAssessmentsList() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState<"all" | "active" | "upcoming" | "completed">("all");
-  const [emptyStateMode, setEmptyStateMode] = useState<"none" | "no-match">("none");
-
   const [exams, setExams] = useState<MockExam[]>([]);
 
   useEffect(() => {
@@ -46,6 +115,11 @@ export default function StudentAssessmentsList() {
       let status: "Active" | "Upcoming" | "Completed" = "Upcoming";
       if (a.status === "Active") status = "Active";
       else if (a.status === "Completed") status = "Completed";
+      
+      // Override status to Upcoming if today is not the scheduled date of the exam
+      if (status === "Active" && !isSameDate(a.date)) {
+        status = "Upcoming";
+      }
       
       return {
         id: a.id,
@@ -65,8 +139,6 @@ export default function StudentAssessmentsList() {
 
   // Filtering assessments
   const filteredExams = exams.filter(exam => {
-    if (emptyStateMode === "no-match") return false;
-
     const matchesSearch = exam.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                           exam.subject.toLowerCase().includes(searchQuery.toLowerCase());
     
@@ -99,28 +171,6 @@ export default function StudentAssessmentsList() {
       {/* Main Body */}
       <main className="max-w-5xl w-full mx-auto p-6 md:p-8 space-y-6 flex-1">
         
-        {/* Toggle Empty States Previews */}
-        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap gap-2 items-center justify-between">
-          <span className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Empty State Simulation:</span>
-          <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
-            <button 
-              onClick={() => setEmptyStateMode("none")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "none" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Default List View
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-match")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-match" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Simulate: No Matches
-            </button>
-          </div>
-        </div>
 
         {/* Tab Filters and Search Bar row */}
         <div className="bg-white border border-slate-200 p-4 rounded-lg shadow-2xs space-y-4">
@@ -260,7 +310,6 @@ export default function StudentAssessmentsList() {
               onAction={() => {
                 setSearchQuery("");
                 setActiveTab("all");
-                setEmptyStateMode("none");
               }}
             />
           </div>

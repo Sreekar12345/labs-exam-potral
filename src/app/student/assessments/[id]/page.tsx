@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments } from "@/lib/storage";
+import { loadAssessments, loadExamSessions, loadStudentProfile } from "@/lib/storage";
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -22,6 +22,77 @@ import {
 
 interface PageProps {
   params: Promise<{ id: string }>;
+}
+
+function isSameDate(scheduledDateStr: string): boolean {
+  if (!scheduledDateStr) return false;
+  
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  const cleanStr = scheduledDateStr.trim().toLowerCase();
+  
+  if (cleanStr.includes("/")) {
+    const parts = cleanStr.split("/");
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  if (cleanStr.includes("-")) {
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  ];
+  const fullMonths = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+
+  try {
+    const parsedDate = new Date(scheduledDateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      return todayYear === parsedDate.getFullYear() &&
+             todayMonth === parsedDate.getMonth() &&
+             todayDay === parsedDate.getDate();
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const words = cleanStr.replace(/,/g, "").split(/\s+/);
+  if (words.length >= 3) {
+    const year = parseInt(words.find(w => w.length === 4 && !isNaN(Number(w))) || "", 10);
+    const day = parseInt(words.find(w => w.length <= 2 && !isNaN(Number(w))) || "", 10);
+    const monthWord = words.find(w => isNaN(Number(w))) || "";
+    let monthIdx = -1;
+    for (let i = 0; i < 12; i++) {
+      if (monthWord.startsWith(months[i]) || monthWord.startsWith(fullMonths[i])) {
+        monthIdx = i;
+        break;
+      }
+    }
+
+    if (!isNaN(year) && !isNaN(day) && monthIdx !== -1) {
+      return todayYear === year && todayMonth === monthIdx && todayDay === day;
+    }
+  }
+
+  return false;
 }
 
 export default function AssessmentLaunchPad({ params }: PageProps) {
@@ -54,19 +125,45 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
     status: "Active"
   });
 
+  const [isScheduledDate, setIsScheduledDate] = useState(true);
+  const [scheduledDateStr, setScheduledDateStr] = useState("");
+
   useEffect(() => {
     const assessments = loadAssessments();
     const found = assessments.find(a => a.id === id);
     if (found) {
+      let poolSize = found.questionsCount;
+      const stored = localStorage.getItem("examcoder_assessment_questions_" + id);
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            poolSize = parsed.length;
+          }
+        } catch (e) {}
+      }
+
+      // Check if session exists for this student and this assessment to get assigned subset count
+      const studentProfile = loadStudentProfile();
+      const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+      const sessions = loadExamSessions();
+      const existingSession = sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === id);
+
+      const displayQuestionsCount = existingSession
+        ? JSON.parse(existingSession.questionOrder).length
+        : Math.min(5, poolSize);
+
       setExamData({
         id: found.id,
         name: found.name,
         subject: found.subject,
         duration: found.duration,
-        totalMarks: found.questionsCount * 15,
-        questionsCount: found.questionsCount,
+        totalMarks: displayQuestionsCount * 15,
+        questionsCount: displayQuestionsCount,
         status: found.status === "Active" ? "Active" : "Upcoming"
       });
+      setScheduledDateStr(found.date);
+      setIsScheduledDate(isSameDate(found.date));
     }
   }, [id]);
 
@@ -157,6 +254,69 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
     // Launch exam runner
     router.push(`/student/exam/${examData.id}`);
   };
+
+  if (!isScheduledDate) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30 font-sans text-xs">
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/student/dashboard" 
+              className="text-slate-500 hover:text-slate-800 transition-colors mr-2 p-1.5 hover:bg-slate-100 rounded-md focus-ring flex items-center gap-1.5 font-bold"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Portal
+            </Link>
+            <div className="h-4 w-[1px] bg-slate-200"></div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">{examData.name}</h2>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">Course ID: {examData.subject} • Roster Status: Restricted</p>
+            </div>
+          </div>
+          <div className="bg-rose-50 border border-rose-250 px-3 py-1 rounded text-rose-700 font-mono font-bold text-[10px] uppercase">
+            Access Restricted
+          </div>
+        </header>
+
+        <main className="max-w-md w-full mx-auto p-6 md:p-8 flex-1 flex flex-col justify-center items-center">
+          <div className="bg-white border border-slate-200 rounded-lg p-8 space-y-6 shadow-2xs text-center">
+            <div className="w-12 h-12 rounded-full bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto">
+              <Lock className="w-6 h-6 text-rose-700" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-extrabold text-slate-950">Assessment Access Locked</h3>
+              <p className="text-slate-500 font-medium leading-relaxed text-xs">
+                This examination is scheduled for <span className="font-bold text-slate-900">{scheduledDateStr || "a different date"}</span>. 
+                You are only permitted to write this assessment on its particular scheduled date.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-4 border border-slate-200 rounded-lg text-slate-650 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+              <div className="flex justify-between">
+                <span>Scheduled Date:</span>
+                <span className="font-bold text-slate-900">{scheduledDateStr}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Today's Date:</span>
+                <span className="font-bold text-slate-900">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Status:</span>
+                <span className="font-bold text-rose-700 uppercase">Restricted</span>
+              </div>
+            </div>
+
+            <Link
+              href="/student/dashboard"
+              className="block w-full bg-slate-900 hover:bg-slate-955 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider shadow-xs text-center"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">

@@ -1,0 +1,110 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Student {
+  id          String   @id @default(uuid())
+  roll        String   @unique
+  name        String
+  email       String   @unique
+  mobile      String
+  collegeName String
+  dept        String
+  year        String
+  section     String
+  status      String   @default("Active")
+  password    String
+  lastLogin   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Faculty {
+  id          String   @id @default(uuid())
+  employeeId  String   @unique
+  fullName    String
+  email       String   @unique
+  mobile      String
+  collegeName String
+  department  String
+  designation String
+  password    String
+  lastLogin   String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Admin {
+  id        String   @id @default(uuid())
+  email     String   @unique
+  password  String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Assessment {
+  id             String @id
+  name           String
+  subject        String
+  duration       Int
+  questionsCount Int
+  assignedCount  Int
+  status         String
+  createdDate    String
+  date           String
+}
+
+model Question {
+  id               String  @id
+  title            String
+  language         String
+  difficulty       String
+  marks            Int
+  topic            String
+  lastUpdated      String
+  status           String
+  timesUsed        Int
+  avgScore         String
+  successRate      String
+  avgTime          String
+  createdBy        String
+  createdDate      String
+  version          Int
+  tags             String
+  description      String?
+  estimatedTime    Int?
+  allowedLanguages String?
+  codeTemplates    String?
+  sampleInput      String?
+  sampleOutput     String?
+  inputFormat      String?
+  outputFormat     String?
+  constraints      String?
+  explanation      String?
+}
+
+model ReportLog {
+  id            String @id
+  name          String
+  category      String
+  generatedDate String
+  generatedBy   String
+  exportType    String
+  downloadCount Int
+}
+
+model ExamSession {
+  id            String  @id
+  studentRoll   String
+  assessmentId  String
+  questionOrder String
+  startedAt     String
+  submittedAt   String?
+
+  @@unique([studentRoll, assessmentId])
+}

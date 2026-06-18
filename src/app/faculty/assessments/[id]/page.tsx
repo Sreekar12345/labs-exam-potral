@@ -3,6 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { loadAssessments, loadQuestions, loadStudents } from "@/lib/storage";
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -96,102 +97,48 @@ export default function AssessmentDetails({ params }: PageProps) {
     return "Draft";
   });
 
-  // Mock Assessment Details Database
-  const assessmentDetails = {
+  // Dynamic Assessment Details State
+  const [assessmentDetails, setAssessmentDetails] = useState({
     id: id || "1",
-    name: id === "1" ? "Data Structures Practical Lab Exam" :
-          id === "2" ? "Object Oriented Programming Final" :
-          id === "3" ? "Design & Analysis of Algorithms Practical" :
-          id === "4" ? "Database Systems Midterm Test" :
-          id === "5" ? "Python Programming Laboratory" : "Custom Cloned Exam Session",
-    subject: id === "1" ? "CS201" :
-             id === "2" ? "IT305" :
-             id === "3" ? "CS304" :
-             id === "4" ? "CS203" :
-             id === "5" ? "IT102" : "CS101",
-    duration: id === "1" ? 180 : id === "2" ? 120 : id === "3" ? 180 : id === "4" ? 90 : 120,
-    totalMarks: id === "1" ? 50 : id === "2" ? 40 : id === "3" ? 50 : id === "4" ? 30 : 50,
+    name: "Loading Assessment Details...",
+    subject: "...",
+    duration: 180,
+    totalMarks: 50,
     type: "Lab Examination",
     startTime: "2026-06-18T10:00",
     endTime: "2026-06-18T13:00",
-    description: "This practical test covers core stack, queue, tree configurations, and binary heap traversals. Students must pass all functional and edge case sandboxed compile tasks.",
-    syllabus: "1. Stacks and Queues implementation using linked structures.\n2. Binary Search Trees and tree inversion traversals.\n3. Heap sort operations and priority queue structures.",
+    description: "Please wait while details are loading...",
+    syllabus: "Loading...",
     batches: ["CSE - 3rd Year - A", "CSE - 3rd Year - B"],
     createdDate: "2026-06-15",
-    outcomes: "CO2: Ability to program complex recursive non-linear pointer structures under restricted memory frames."
+    outcomes: "..."
+  });
+
+  const PLACEHOLDER_QUESTION: MockQuestion = {
+    id: "placeholder",
+    title: "Loading questions...",
+    difficulty: "Medium",
+    topic: "Loading",
+    marks: 0,
+    language: "C++ / Java / Python",
+    description: "Loading question details from database...",
+    inputFormat: "Loading...",
+    outputFormat: "Loading...",
+    constraints: "Loading...",
+    sampleInput: "",
+    sampleOutput: "",
+    codeBoilerplate: {
+      cpp: `// C++ Template\n`,
+      java: `// Java Template\n`,
+      python: `# Python Template\n`
+    }
   };
 
-  // Mock Questions Bank for this Exam
-  const [questions, setQuestions] = useState<MockQuestion[]>([
-    {
-      id: "q1",
-      title: "Invert a Binary Tree",
-      difficulty: "Medium",
-      topic: "Data Structures",
-      marks: 15,
-      language: "C++ / Java / Python",
-      description: "Given the root of a binary tree, invert the tree, and return its root. Inverting a binary tree means exchanging left and right subtrees of every node.",
-      inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal format (with -1 representing null nodes).",
-      outputFormat: "Output the level-order traversal array of the inverted binary tree.",
-      constraints: "Number of nodes in the tree is in range [0, 1000].\nNode values range from -100 to 100.",
-      sampleInput: "4 2 7 1 3 6 9",
-      sampleOutput: "4 7 2 9 6 3 1",
-      codeBoilerplate: {
-        cpp: `// C++ Template\n#include <iostream>\nusing namespace std;\n\nstruct TreeNode {\n    int val;\n    TreeNode *left, *right;\n    TreeNode(int x) : val(x), left(NULL), right(NULL) {}\n};\n\nTreeNode* invertTree(TreeNode* root) {\n    // Write your code here\n    if (root == NULL) return NULL;\n    TreeNode* temp = root->left;\n    root->left = invertTree(root->right);\n    root->right = invertTree(temp);\n    return root;\n}`,
-        java: `// Java Template\nclass Solution {\n    public TreeNode invertTree(TreeNode root) {\n        // Write your code here\n        if (root == null) return null;\n        TreeNode temp = root.left;\n        root.left = invertTree(root.right);\n        root.right = invertTree(temp);\n        return root;\n    }\n}`,
-        python: `# Python Template\nclass Solution:\n    def invertTree(self, root: Optional[TreeNode]) -> Optional[TreeNode]:\n        # Write your code here\n        if not root:\n            return None\n        root.left, root.right = self.invertTree(root.right), self.invertTree(root.left)\n        return root`
-      }
-    },
-    {
-      id: "q2",
-      title: "Validate Binary Search Tree",
-      difficulty: "Medium",
-      topic: "Data Structures",
-      marks: 15,
-      language: "C++ / Java / Python",
-      description: "Given the root of a binary tree, determine if it is a valid binary search tree (BST). A valid BST is defined as follows:\n- The left subtree of a node contains only nodes with keys less than the node's key.\n- The right subtree of a node contains only nodes with keys greater than the node's key.\n- Both the left and right subtrees must also be binary search trees.",
-      inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal.",
-      outputFormat: "Output 'true' if the tree is a valid BST, otherwise output 'false'.",
-      constraints: "Number of nodes is in range [1, 10000].\nNode values range from -2^31 to 2^31 - 1.",
-      sampleInput: "2 1 3",
-      sampleOutput: "true",
-      codeBoilerplate: {
-        cpp: `// C++ Template\n#include <iostream>\nusing namespace std;\n\nbool isValidBST(TreeNode* root) {\n    // Write your code here\n    return true;\n}`,
-        java: `// Java Template\nclass Solution {\n    public boolean isValidBST(TreeNode root) {\n        // Write your code here\n        return true;\n    }\n}`,
-        python: `# Python Template\nclass Solution:\n    def isValidBST(self, root: Optional[TreeNode]) -> bool:\n        # Write your code here\n        return True`
-      }
-    },
-    {
-      id: "q3",
-      title: "Implement Dijkstra Shortest Path",
-      difficulty: "Hard",
-      topic: "Algorithms",
-      marks: 20,
-      language: "C++ / Java / Python",
-      description: "Given a weighted undirected graph with V vertices and E edges, find the shortest distance of all the vertices from the source vertex S. Return an array of distances.",
-      inputFormat: "The first line contains V and E. Next E lines represent edges: u v w (source, destination, weight). The final line contains S (source node).",
-      outputFormat: "Return space-separated integers representing the shortest path from S to each node.",
-      constraints: "1 <= V <= 1000\n1 <= E <= 10000\n1 <= w <= 1000",
-      sampleInput: "2 1\n0 1 9\n0",
-      sampleOutput: "0 9",
-      codeBoilerplate: {
-        cpp: `// C++ Template\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nvector<int> dijkstra(int V, vector<vector<int>> adj[], int S) {\n    // Write your code here\n    vector<int> dist(V, 1e9);\n    return dist;\n}`,
-        java: `// Java Template\nimport java.util.*;\nclass Solution {\n    static int[] dijkstra(int V, ArrayList<ArrayList<ArrayList<Integer>>> adj, int S) {\n        // Write your code here\n        return new int[V];\n    }\n}`,
-        python: `# Python Template\ndef dijkstra(V, adj, S):\n    # Write your code here\n    return [0] * V`
-      }
-    }
-  ]);
+  // Dynamic Questions Bank for this Exam
+  const [questions, setQuestions] = useState<MockQuestion[]>([PLACEHOLDER_QUESTION]);
 
-  // Mock Students Roster list
-  const [students, setStudents] = useState<MockStudent[]>([
-    { roll: "22CSE102", name: "Aditya Verma", dept: "CSE", year: "3rd Year", section: "A", email: "aditya.22cse@psg.edu", status: "In Progress", lastLogin: "10:42 AM", ip: "192.168.12.104", warningsCount: 1, progress: "Q1 Compiled, Q2 Solved" },
-    { roll: "22CSE115", name: "Bhavya Sri", dept: "CSE", year: "3rd Year", section: "A", email: "bhavya.22cse@psg.edu", status: "Completed", lastLogin: "10:15 AM", ip: "192.168.12.110", warningsCount: 0, progress: "All solved (Passed 3/3)" },
-    { roll: "22CSE142", name: "Deepak Kumar", dept: "CSE", year: "3rd Year", section: "B", email: "deepak.22cse@psg.edu", status: "In Progress", lastLogin: "10:48 AM", ip: "192.168.12.122", warningsCount: 2, progress: "Q1 Solved, Q2 compilation failed" },
-    { roll: "22CSE159", name: "Divya N", dept: "CSE", year: "3rd Year", section: "B", email: "divya.22cse@psg.edu", status: "Disqualified", lastLogin: "10:05 AM", ip: "192.168.12.138", warningsCount: 3, progress: "Disqualified (Auto-submit triggered)" },
-    { roll: "22CSE185", name: "Gautham S", dept: "CSE", year: "3rd Year", section: "A", email: "gautham.22cse@psg.edu", status: "Not Started", lastLogin: "Never", ip: "—", warningsCount: 0, progress: "Roster Enrolled" },
-    { roll: "22CSE204", name: "Ishaan Mehta", dept: "CSE", year: "3rd Year", section: "B", email: "ishaan.22cse@psg.edu", status: "Completed", lastLogin: "10:10 AM", ip: "192.168.12.109", warningsCount: 0, progress: "All solved (Passed 3/3)" },
-    { roll: "22CSE210", name: "Karthik Raja", dept: "CSE", year: "3rd Year", section: "A", email: "karthik.22cse@psg.edu", status: "In Progress", lastLogin: "10:52 AM", ip: "192.168.12.115", warningsCount: 0, progress: "Q1 Compiled, Q2 solved" }
-  ]);
+  // Dynamic Students Roster list
+  const [students, setStudents] = useState<MockStudent[]>([]);
 
   // Simulated live monitoring statistics
   const activeStudentsCount = students.filter(s => s.status === "In Progress").length;
@@ -209,47 +156,103 @@ export default function AssessmentDetails({ params }: PageProps) {
   const [autoSubmitThreshold, setAutoSubmitThreshold] = useState(3);
 
   // Student IDE Preview Simulator States
-  const [simSelectedQuestion, setSimSelectedQuestion] = useState<MockQuestion>(questions[0]);
+  const [simSelectedQuestion, setSimSelectedQuestion] = useState<MockQuestion>(PLACEHOLDER_QUESTION);
   const [simLanguage, setSimLanguage] = useState<"cpp" | "java" | "python">("python");
-  const [simCode, setSimCode] = useState(questions[0].codeBoilerplate.python);
+  const [simCode, setSimCode] = useState(PLACEHOLDER_QUESTION.codeBoilerplate.python);
   const [simConsoleOutput, setSimConsoleOutput] = useState<string>("Editor initialized. Ready to run code.");
   const [simIsRunningCode, setSimIsRunningCode] = useState(false);
   const [simFullscreenSimulated, setSimFullscreenSimulated] = useState(false);
   const [simWarningsSimCount, setSimWarningsSimCount] = useState(0);
 
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const stored = localStorage.getItem("examcoder_assessment_questions_" + id);
-      if (stored) {
-        try {
-          const parsed = JSON.parse(stored);
-          if (Array.isArray(parsed) && parsed.length > 0) {
-            const mapped: MockQuestion[] = parsed.map((q, idx) => ({
-              id: q.id || `q-${idx}`,
-              title: q.title,
-              difficulty: q.difficulty,
-              topic: q.topic,
-              marks: q.marks,
-              language: q.language || "C++ / Java / Python",
-              description: q.description || "Given the coding challenge statement...",
-              inputFormat: "Standard Input streams.",
-              outputFormat: "Standard Output streams.",
-              constraints: "Standard execution environments.",
-              sampleInput: "No custom verification case defined.",
-              sampleOutput: "No output validation case defined.",
-              codeBoilerplate: {
-                cpp: `// C++ Template\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // Write your code here\n    return 0;\n}`,
-                java: `// Java Template\nclass Solution {\n    public static void main(String[] args) {\n        // Write your code here\n    }\n}`,
-                python: `# Python Template\ndef solve():\n    # Write your code here\n    pass\n\nif __name__ == '__main__':\n    solve()`
-              }
-            }));
-            setQuestions(mapped);
-            setSimSelectedQuestion(mapped[0]);
-            setSimCode(mapped[0].codeBoilerplate.python);
+    const allAssessments = loadAssessments();
+    const foundAsm = allAssessments.find(a => a.id === id);
+    const allQuestions = loadQuestions();
+    const allStudents = loadStudents();
+
+    if (foundAsm) {
+      setAssessmentDetails({
+        id: foundAsm.id,
+        name: foundAsm.name,
+        subject: foundAsm.subject,
+        duration: foundAsm.duration,
+        totalMarks: foundAsm.questionsCount * 15,
+        type: "Lab Examination",
+        startTime: "2026-06-18T10:00",
+        endTime: "2026-06-18T13:00",
+        description: "This practical test covers core stack, queue, tree configurations, and binary heap traversals. Students must pass all functional and edge case sandboxed compile tasks.",
+        syllabus: "1. Stacks and Queues implementation using linked structures.\n2. Binary Search Trees and tree inversion traversals.\n3. Heap sort operations and priority queue structures.",
+        batches: ["CSE - 3rd Year - A", "CSE - 3rd Year - B"],
+        createdDate: foundAsm.createdDate,
+        outcomes: "CO2: Ability to program complex recursive non-linear pointer structures under restricted memory frames."
+      });
+      setExamStatus(foundAsm.status as any);
+
+      // Load questions matching this assessment
+      const limit = foundAsm.questionsCount;
+      const selectedQuestions = allQuestions.slice(0, limit);
+      if (selectedQuestions.length > 0) {
+        const mappedQuestions = selectedQuestions.map((q, idx) => {
+          const templates = (q.codeTemplates as any) || {
+            cpp: `// C++ Template\n#include <iostream>\nusing namespace std;\n\nint main() {\n    return 0;\n}`,
+            java: `// Java Template\nclass Solution {\n    public static void main(String[] args) {}\n}`,
+            python: `# Python Template\ndef solve():\n    pass`
+          };
+          return {
+            id: q.id,
+            title: q.title,
+            difficulty: (q.difficulty === "Easy" || q.difficulty === "Medium" || q.difficulty === "Hard") ? q.difficulty : "Medium",
+            topic: q.topic || "General",
+            marks: q.marks || 15,
+            language: q.language || "C++ / Java / Python",
+            description: q.description || `Problem statement for "${q.title}". Write a program in the selected language to solve the challenge.`,
+            inputFormat: q.inputFormat || "Standard input streams.",
+            outputFormat: q.outputFormat || "Standard output streams.",
+            constraints: q.constraints || "Standard execution environments.",
+            sampleInput: q.sampleInput || "No sample input defined.",
+            sampleOutput: q.sampleOutput || "No sample output defined.",
+            codeBoilerplate: {
+              cpp: templates.cpp || templates.c || `// C++\n`,
+              java: templates.java || `// Java\n`,
+              python: templates.python || `# Python\n`
+            }
+          };
+        });
+        setQuestions(mappedQuestions);
+        setSimSelectedQuestion(mappedQuestions[0]);
+        setSimCode(mappedQuestions[0].codeBoilerplate.python);
+      }
+
+      // Load roster of students dynamically
+      if (allStudents.length > 0) {
+        const mappedStudents = allStudents.map((s, idx) => {
+          let status: "Not Started" | "In Progress" | "Completed" | "Disqualified" = "Not Started";
+          if (s.status === "Suspended") {
+            status = "Disqualified";
+          } else if (idx === 0 || idx === 2 || idx === 6) {
+            status = "In Progress";
+          } else if (idx === 1 || idx === 5) {
+            status = "Completed";
           }
-        } catch (err) {
-          console.error("Failed to parse linked questions", err);
-        }
+
+          return {
+            roll: s.roll,
+            name: s.name,
+            dept: s.dept || "CSE",
+            year: s.year || "3rd Year",
+            section: s.section || "A",
+            email: s.email,
+            status: status,
+            lastLogin: s.lastLogin ? "10:42 AM" : "Never",
+            ip: s.status === "Active" && status !== "Not Started" ? `192.168.12.${100 + idx}` : "—",
+            warningsCount: status === "Disqualified" ? 3 : idx === 2 ? 2 : idx === 0 ? 1 : 0,
+            progress: status === "Completed" ? "All solved (Passed 3/3)" :
+                      status === "Disqualified" ? "Disqualified (Auto-submit triggered)" :
+                      idx === 2 ? "Q1 Solved, Q2 compilation failed" :
+                      idx === 0 ? "Q1 Compiled, Q2 Solved" : "Roster Enrolled"
+          };
+        });
+        setStudents(mappedStudents);
       }
     }
   }, [id]);

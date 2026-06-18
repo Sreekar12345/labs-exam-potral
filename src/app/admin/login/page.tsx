@@ -33,7 +33,7 @@ export default function AdminLogin() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
 
@@ -41,15 +41,27 @@ export default function AdminLogin() {
 
     setIsLoading(true);
 
-    // Simulate login verification
-    setTimeout(() => {
-      if (email.length >= 4 && password.length >= 6) {
+    try {
+      const res = await fetch("/api/admin/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok && data.status === "success") {
+        localStorage.setItem("examcoder_auth_token", data.token);
+        localStorage.setItem("examcoder_admin_profile", JSON.stringify(data.profile));
         router.push("/admin/dashboard");
       } else {
         setIsLoading(false);
-        setErrors({ general: "Invalid administrator credentials. Access attempts are logged." });
+        setErrors({ general: data.message || "Invalid administrator credentials." });
       }
-    }, 1500);
+    } catch (err) {
+      setIsLoading(false);
+      setErrors({ general: "Failed to connect to the authentication server." });
+    }
   };
 
   return (
@@ -71,11 +83,6 @@ export default function AdminLogin() {
           </div>
         )}
 
-        {/* Sandbox tip */}
-        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded text-[11px] text-slate-600 space-y-0.5">
-          <p className="font-bold text-slate-800">Sandbox Preview Tip:</p>
-          <p>You can enter any Admin Email and a 6-character password to access the mock administrator dashboard workspace.</p>
-        </div>
 
         {/* Admin Email Input */}
         <div className="space-y-1">

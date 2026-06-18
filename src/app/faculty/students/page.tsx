@@ -55,7 +55,6 @@ export default function StudentManagement() {
   const router = useRouter();
   
   // UX State toggles
-  const [emptyStateMode, setEmptyStateMode] = useState<"none" | "no-students" | "no-search" | "no-assessments">("none");
   const [showImportModal, setShowImportModal] = useState(false);
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [selectedStudents, setSelectedStudents] = useState<string[]>([]);
@@ -102,8 +101,24 @@ export default function StudentManagement() {
   };
 
   // Actions
-  const handleResetPassword = (id: string, name: string) => {
-    alert(`Simulation: Password for ${name} reset to temporary default: PSG@${id}`);
+  const handleResetPassword = async (id: string, name: string) => {
+    const tempPassword = `PSG@${id.slice(0, 5)}`;
+    try {
+      const res = await fetch("/api/student/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id, newPassword: tempPassword }),
+      });
+      const data = await res.json();
+      if (data.status === "success") {
+        alert(`Password for ${name} has been reset to: ${tempPassword}`);
+      } else {
+        alert(`Failed to reset password: ${data.message}`);
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Failed to reset password due to network error.");
+    }
   };
 
   const handleToggleStatus = (id: string, current: string) => {
@@ -202,46 +217,31 @@ export default function StudentManagement() {
       {/* Main Page Layout Wrapper */}
       <main className="max-w-7xl w-full mx-auto p-6 md:p-8 space-y-6 flex-1">
         
-        {/* Toggle Empty States Previews */}
-        <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-2xs flex flex-wrap gap-2 items-center justify-between">
-          <span className="font-bold text-slate-500 uppercase text-[9px] tracking-wider">Empty State Preview Toggles:</span>
-          <div className="flex bg-slate-100 p-0.5 rounded-md border border-slate-200">
-            <button 
-              onClick={() => setEmptyStateMode("none")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "none" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Default Populate
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-students")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-students" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Students
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-search")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-search" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Results
-            </button>
-            <button 
-              onClick={() => setEmptyStateMode("no-assessments")}
-              className={`px-2.5 py-1 rounded text-[10px] font-semibold transition-all ${
-                emptyStateMode === "no-assessments" ? "bg-white text-slate-950 shadow-2xs" : "text-slate-500"
-              }`}
-            >
-              Empty: No Exams
-            </button>
-          </div>
-        </div>
-
-        {emptyStateMode === "none" && (
+        {students.length === 0 ? (
+          <EmptyState
+            title="No Candidates Registered"
+            description="Your class rosters are empty. Register engineering students to allocate security sandbox access keys."
+            secondaryDescription="Supports import from Excel spreadsheets or custom enrollment sheets."
+            icon={Users}
+            actionLabel="Add Student Profile"
+            onAction={() => router.push("/faculty/students/create")}
+          />
+        ) : filteredStudents.length === 0 ? (
+          <EmptyState
+            title="No Results Matched"
+            description="No student profiles match the filter tags or search text parameters."
+            secondaryDescription="Double check the search query and try again."
+            icon={Search}
+            actionLabel="Reset Filtration Settings"
+            onAction={() => {
+              setSearchQuery("");
+              setFilterDept("all");
+              setFilterYear("all");
+              setFilterSection("all");
+              setFilterStatus("all");
+            }}
+          />
+        ) : (
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
             
             {/* Left Main panel: Student search filters and roster table list */}
@@ -405,7 +405,7 @@ export default function StudentManagement() {
                                 <Eye className="w-3.5 h-3.5" />
                               </Link>
                               <button 
-                                onClick={() => handleResetPassword(std.roll, std.name)}
+                                onClick={() => handleResetPassword(std.id, std.name)}
                                 className="text-slate-400 hover:text-slate-850 p-1 hover:bg-slate-55 rounded"
                                 title="Reset credentials"
                               >
@@ -537,48 +537,6 @@ export default function StudentManagement() {
           </div>
         )}
 
-        {/* TAB EMPTY 1: NO STUDENTS ADDED */}
-        {emptyStateMode === "no-students" && (
-          <EmptyState
-            title="No Candidates Registered"
-            description="Your class rosters are empty. Register engineering students to allocate security sandbox access keys."
-            secondaryDescription="Supports import from Excel spreadsheets or custom enrollment sheets."
-            icon={Users}
-            actionLabel="Add Student Profile"
-            onAction={() => router.push("/faculty/students/create")}
-          />
-        )}
-
-        {/* TAB EMPTY 2: NO SEARCH RESULTS */}
-        {emptyStateMode === "no-search" && (
-          <EmptyState
-            title="No Results Matched"
-            description="No student profiles match the filter tags or search text parameters."
-            secondaryDescription="Double check the search query and try again."
-            icon={Search}
-            actionLabel="Reset Filtration Settings"
-            onAction={() => {
-              setSearchQuery("");
-              setFilterDept("all");
-              setFilterYear("all");
-              setFilterSection("all");
-              setFilterStatus("all");
-              setEmptyStateMode("none");
-            }}
-          />
-        )}
-
-        {/* TAB EMPTY 3: NO ASSESSMENTS ASSIGNED */}
-        {emptyStateMode === "no-assessments" && (
-          <EmptyState
-            title="No Assessments Assigned"
-            description="All active student rosters have completed their scheduled assessments. There are no ongoing exam logs."
-            secondaryDescription="Create new exam sheets in the Assessments Control tab."
-            icon={BookOpen}
-            actionLabel="Configure New Exam"
-            onAction={() => router.push("/faculty/dashboard")}
-          />
-        )}
 
       </main>
 

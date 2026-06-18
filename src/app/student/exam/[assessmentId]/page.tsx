@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, loadQuestions } from "@/lib/storage";
+import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents, loadExamSessions, saveExamSessions } from "@/lib/storage";
 import { 
   Play, 
   Send, 
@@ -64,113 +64,98 @@ interface MockQuestion {
   };
 }
 
-const STATIC_QUESTIONS: MockQuestion[] = [
-  {
-    id: "q1",
-    num: 1,
-    title: "Invert a Binary Tree",
-    difficulty: "Medium",
-    topic: "Data Structures",
-    marks: 15,
-    description: "Given the root of a binary tree, invert the tree, and return its root. Inverting a binary tree means exchanging left and right subtrees of every node.",
-    inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal format.",
-    outputFormat: "Output the level-order traversal array of the inverted binary tree.",
-    constraints: "The number of nodes in the tree is in the range [0, 1000].\nNode values range from -100 to 100.",
-    sampleInput: "4 2 7 1 3 6 9",
-    sampleOutput: "4 7 2 9 6 3 1",
-    explanation: "Each node's left and right pointers are recursively swapped. For 4's children, 2 and 7 become 7 and 2. Their children are swapped similarly.",
-    codeTemplates: {
-      c: `// Language: C\n#include <stdio.h>\n#include <stdlib.h>\n\nstruct TreeNode {\n    int val;\n    struct TreeNode* left;\n    struct TreeNode* right;\n};\n\nstruct TreeNode* invertTree(struct TreeNode* root) {\n    // Write your code here\n    if (root == NULL) return NULL;\n    struct TreeNode* temp = root->left;\n    root->left = invertTree(root->right);\n    root->right = invertTree(temp);\n    return root;\n}`,
-      cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nstruct TreeNode {\n    int val;\n    TreeNode *left, *right;\n    TreeNode(int x) : val(x), left(NULL), right(NULL) {}\n};\n\nTreeNode* invertTree(TreeNode* root) {\n    // Write your C++ code here\n    if (root == NULL) return NULL;\n    TreeNode* temp = root->left;\n    root->left = invertTree(root->right);\n    root->right = invertTree(temp);\n    return root;\n}`,
-      java: `// Language: Java (OpenJDK 17)\nimport java.util.*;\n\nclass Solution {\n    public TreeNode invertTree(TreeNode root) {\n        // Write your Java code here\n        if (root == null) return null;\n        TreeNode temp = root.left;\n        root.left = invertTree(root.right);\n        root.right = invertTree(temp);\n        return root;\n    }\n}`,
-      python: `# Language: Python 3.10\ndef solve():\n    # Write your Python code here\n    pass\n\nsolve()`
-    }
-  },
-  {
-    id: "q2",
-    num: 2,
-    title: "Validate Binary Search Tree",
-    difficulty: "Medium",
-    topic: "Data Structures",
-    marks: 15,
-    description: "Given the root of a binary tree, determine if it is a valid binary search tree (BST). A valid BST satisfies: left child is less than root, right child is greater than root, and all subtrees are also valid BSTs.",
-    inputFormat: "First line contains N, the number of nodes. Next line contains node values in level-order traversal.",
-    outputFormat: "Output 'true' if the tree is a valid BST, otherwise output 'false'.",
-    constraints: "Number of nodes is in range [1, 10000].\nNode values range from -2^31 to 2^31 - 1.",
-    sampleInput: "2 1 3",
-    sampleOutput: "true",
-    explanation: "2 is the root. Left child is 1 (< 2). Right child is 3 (> 2). Tree meets all BST criteria.",
-    codeTemplates: {
-      c: `// Language: C\n#include <stdio.h>\n#include <stdbool.h>\n\nbool isValidBST(struct TreeNode* root) {\n    // Write your code here\n    return true;\n}`,
-      cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nbool isValidBST(TreeNode* root) {\n    // Write your code here\n    return true;\n}`,
-      java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public boolean isValidBST(TreeNode root) {\n        // Write your code here\n        return true;\n    }\n}`,
-      python: `# Language: Python 3.10\ndef solve():\n    # Validate BST here\n    return True\n\nprint(solve())`
-    }
-  },
-  {
-    id: "q3",
-    num: 3,
-    title: "Implement Dijkstra Shortest Path",
-    difficulty: "Hard",
-    topic: "Algorithms",
-    marks: 20,
-    description: "Given a weighted undirected graph with V vertices and E edges, find the shortest distance of all the vertices from the source vertex S. Return an array of distances.",
-    inputFormat: "The first line contains V and E. Next E lines represent edges: u v w (source, destination, weight). The final line contains S (source node).",
-    outputFormat: "Return space-separated integers representing the shortest path from S to each node.",
-    constraints: "1 <= V <= 1000\n1 <= E <= 10000\n1 <= w <= 1000",
-    sampleInput: "2 1\n0 1 9\n0",
-    sampleOutput: "0 9",
-    explanation: "Source is 0. Distance from 0 to 0 is 0. Distance from 0 to 1 is weight 9. Array output: 0 9.",
-    codeTemplates: {
-      c: `// Language: C\n#include <stdio.h>\n\nvoid dijkstra(int V, int S) {\n    // Write your code here\n}`,
-      cpp: `// Language: C++17\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nvector<int> dijkstra(int V, int S) {\n    // Write your code here\n    return {};\n}`,
-      java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public int[] dijkstra(int V, int S) {\n        // Write your code here\n        return new int[V];\n    }\n}`,
-      python: `# Language: Python 3.10\ndef dijkstra(V, S):\n    # Write your code here\n    return [0] * V\n\nprint(dijkstra(2, 0))`
-    }
-  },
-  {
-    id: "q4",
-    num: 4,
-    title: "Merge K Sorted Lists",
-    difficulty: "Hard",
-    topic: "Algorithms",
-    marks: 20,
-    description: "You are given an array of k linked-lists lists, each linked-list is sorted in ascending order. Merge all the linked-lists into one sorted linked-list and return it.",
-    inputFormat: "First line contains K, the number of lists. Next K lines detail lists, starting with node count N, then N sorted integers.",
-    outputFormat: "Output space-separated integers representing the single merged sorted list.",
-    constraints: "k == lists.length\n0 <= k <= 10^4\n0 <= lists[i].length <= 500\n-10^4 <= lists[i][j] <= 10^4",
-    sampleInput: "3\n3 1 4 5\n3 1 3 4\n2 2 6",
-    sampleOutput: "1 1 2 3 4 4 5 6",
-    explanation: "The lists are [1->4->5], [1->3->4], and [2->6]. Merging them in order gives [1->1->2->3->4->4->5->6].",
-    codeTemplates: {
-      c: `// Language: C\n#include <stdio.h>\n\nstruct ListNode* mergeKLists(struct ListNode** lists, int listsSize) {\n    // Write your code here\n    return NULL;\n}`,
-      cpp: `// Language: C++17\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nListNode* mergeKLists(vector<ListNode*>& lists) {\n    // Write your code here\n    return NULL;\n}`,
-      java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public ListNode mergeKLists(ListNode[] lists) {\n        // Write your code here\n        return null;\n    }\n}`,
-      python: `# Language: Python 3.10\ndef mergeKLists(lists):\n    # Write your code here\n    return []\n\nprint(mergeKLists([]))`
-    }
-  },
-  {
-    id: "q5",
-    num: 5,
-    title: "Maximum Subarray Sum",
-    difficulty: "Easy",
-    topic: "Algorithms",
-    marks: 10,
-    description: "Given an integer array nums, find the contiguous subarray (containing at least one number) which has the largest sum and return its sum.",
-    inputFormat: "First line contains N, the size of the array. Next line contains N space-separated integers.",
-    outputFormat: "Output a single integer representing the maximum contiguous subarray sum.",
-    constraints: "1 <= nums.length <= 10^5\n-10^4 <= nums[i] <= 10^4",
-    sampleInput: "9\n-2 1 -3 4 -1 2 1 -5 4",
-    sampleOutput: "6",
-    explanation: "The contiguous subarray [4,-1,2,1] has the largest sum = 6.",
-    codeTemplates: {
-      c: `// Language: C\n#include <stdio.h>\n\nint maxSubArray(int* nums, int numsSize) {\n    // Write your code here\n    return 0;\n}`,
-      cpp: `// Language: C++17\n#include <iostream>\n#include <vector>\nusing namespace std;\n\nint maxSubArray(vector<int>& nums) {\n    // Write your code here\n    return 0;\n}`,
-      java: `// Language: Java (OpenJDK 17)\nclass Solution {\n    public int maxSubArray(int[] nums) {\n        // Write your code here\n        return 0;\n    }\n}`,
-      python: `# Language: Python 3.10\ndef maxSubArray(nums):\n    # Write your code here\n    return 0\n\nprint(maxSubArray([-2, 1, -3, 4]))`
+const PLACEHOLDER_QUESTION: MockQuestion = {
+  id: "placeholder",
+  num: 1,
+  title: "Loading question...",
+  difficulty: "Medium",
+  topic: "Loading",
+  marks: 0,
+  description: "Please wait while the assessment questions are loading from the database...",
+  inputFormat: "Loading...",
+  outputFormat: "Loading...",
+  constraints: "Loading...",
+  sampleInput: "",
+  sampleOutput: "",
+  explanation: "",
+  codeTemplates: {
+    c: `// Language: C\n#include <stdio.h>\n\nint main() {\n    // solve\n    return 0;\n}`,
+    cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // solve\n    return 0;\n}`,
+    java: `// Language: Java 17\nclass Solution {\n    public static void main(String[] args) {\n        // solve\n    }\n}`,
+    python: `# Language: Python 3.10\ndef solve():\n    pass\n\nsolve()`
+  }
+};
+
+function isSameDate(scheduledDateStr: string): boolean {
+  if (!scheduledDateStr) return false;
+  
+  const today = new Date();
+  const todayYear = today.getFullYear();
+  const todayMonth = today.getMonth();
+  const todayDay = today.getDate();
+
+  const cleanStr = scheduledDateStr.trim().toLowerCase();
+  
+  if (cleanStr.includes("/")) {
+    const parts = cleanStr.split("/");
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
     }
   }
-];
+
+  if (cleanStr.includes("-")) {
+    const parts = cleanStr.split("-");
+    if (parts.length === 3) {
+      const year = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const day = parseInt(parts[2], 10);
+      return todayYear === year && todayMonth === month && todayDay === day;
+    }
+  }
+
+  const months = [
+    "jan", "feb", "mar", "apr", "may", "jun",
+    "jul", "aug", "sep", "oct", "nov", "dec"
+  ];
+  const fullMonths = [
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december"
+  ];
+
+  try {
+    const parsedDate = new Date(scheduledDateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      return todayYear === parsedDate.getFullYear() &&
+             todayMonth === parsedDate.getMonth() &&
+             todayDay === parsedDate.getDate();
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  const words = cleanStr.replace(/,/g, "").split(/\s+/);
+  if (words.length >= 3) {
+    const year = parseInt(words.find(w => w.length === 4 && !isNaN(Number(w))) || "", 10);
+    const day = parseInt(words.find(w => w.length <= 2 && !isNaN(Number(w))) || "", 10);
+    const monthWord = words.find(w => isNaN(Number(w))) || "";
+    let monthIdx = -1;
+    for (let i = 0; i < 12; i++) {
+      if (monthWord.startsWith(months[i]) || monthWord.startsWith(fullMonths[i])) {
+        monthIdx = i;
+        break;
+      }
+    }
+
+    if (!isNaN(year) && !isNaN(day) && monthIdx !== -1) {
+      return todayYear === year && todayMonth === monthIdx && todayDay === day;
+    }
+  }
+
+  return false;
+}
 
 export default function StudentExamWorkspace({ params }: PageProps) {
   const { assessmentId } = use(params);
@@ -184,6 +169,9 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     duration: 180,
     totalMarks: 50
   });
+
+  const [isScheduledDate, setIsScheduledDate] = useState(true);
+  const [scheduledDateStr, setScheduledDateStr] = useState("");
 
   // Screen layout size variables
   const [highContrast, setHighContrast] = useState(false);
@@ -205,27 +193,20 @@ export default function StudentExamWorkspace({ params }: PageProps) {
 
   // Finish assessment variables
   const [showFinishModal, setShowFinishModal] = useState(false);
+  const [showSubmitModal, setShowSubmitModal] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
-  // Active exam questions (initialized to static fallback, populated dynamically from localStorage)
-  const [questions, setQuestions] = useState<MockQuestion[]>(STATIC_QUESTIONS);
-  const [currentQuestion, setCurrentQuestion] = useState<MockQuestion>(STATIC_QUESTIONS[0]);
+  // Active exam questions (initialized to placeholder, populated dynamically from localStorage)
+  const [questions, setQuestions] = useState<MockQuestion[]>([PLACEHOLDER_QUESTION]);
+  const [currentQuestion, setCurrentQuestion] = useState<MockQuestion>(PLACEHOLDER_QUESTION);
   const [questionStates, setQuestionStates] = useState<Record<string, "not-visited" | "visited" | "attempted" | "submitted">>({
-    q1: "visited",
-    q2: "not-visited",
-    q3: "not-visited",
-    q4: "not-visited",
-    q5: "not-visited"
+    placeholder: "visited"
   });
 
   // Editor states
   const [selectedLanguage, setSelectedLanguage] = useState<"c" | "cpp" | "java" | "python">("python");
   const [codeContent, setCodeContent] = useState<Record<string, string>>({
-    q1: STATIC_QUESTIONS[0].codeTemplates.python,
-    q2: STATIC_QUESTIONS[1].codeTemplates.python,
-    q3: STATIC_QUESTIONS[2].codeTemplates.python,
-    q4: STATIC_QUESTIONS[3].codeTemplates.python,
-    q5: STATIC_QUESTIONS[4].codeTemplates.python
+    placeholder: PLACEHOLDER_QUESTION.codeTemplates.python
   });
 
   // Console panel states
@@ -254,12 +235,66 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     const allQuestions = loadQuestions();
 
     if (foundAssessment) {
+      setScheduledDateStr(foundAssessment.date);
+      setIsScheduledDate(isSameDate(foundAssessment.date));
+
+      // Resolve the student profile
+      const studentProfile = loadStudentProfile();
+      const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+
+      // Load linked question pool
+      let questionPool: any[] = [];
+      const stored = localStorage.getItem("examcoder_assessment_questions_" + assessmentId);
+      if (stored) {
+        try {
+          questionPool = JSON.parse(stored);
+        } catch (e) {}
+      }
+      if (!questionPool || questionPool.length === 0) {
+        questionPool = allQuestions.filter(q => q.status === "Active" || !q.status);
+      }
+
+      // Check if session exists for this student and this assessment to retrieve assigned subset
+      const sessions = loadExamSessions();
+      const existingSession = sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === assessmentId);
+
+      let assignedQuestions: any[] = [];
+      if (existingSession) {
+        // Load assigned questions in the stored order
+        const orderIds: string[] = JSON.parse(existingSession.questionOrder);
+        assignedQuestions = orderIds.map(id => questionPool.find(q => q.id === id)).filter(Boolean);
+        if (assignedQuestions.length === 0 && questionPool.length > 0) {
+          assignedQuestions = questionPool.slice(0, Math.min(5, questionPool.length));
+        }
+      } else {
+        // First time entering the exam: select a random subset of 5 questions
+        const shuffledPool = [...questionPool];
+        // Fisher-Yates shuffle
+        for (let i = shuffledPool.length - 1; i > 0; i--) {
+          const j = Math.floor(Math.random() * (i + 1));
+          [shuffledPool[i], shuffledPool[j]] = [shuffledPool[j], shuffledPool[i]];
+        }
+        const subsetSize = Math.min(5, shuffledPool.length);
+        assignedQuestions = shuffledPool.slice(0, subsetSize);
+
+        // Save this new randomized order assigned to this student
+        const newSession = {
+          id: Date.now().toString() + "_" + Math.random().toString(36).substr(2, 9),
+          studentRoll: studentRoll,
+          assessmentId: assessmentId,
+          questionOrder: JSON.stringify(assignedQuestions.map(q => q.id)),
+          startedAt: new Date().toISOString(),
+          submittedAt: null
+        };
+        saveExamSessions([newSession, ...sessions]);
+      }
+
       setExamData({
         id: foundAssessment.id,
         name: foundAssessment.name,
         subject: foundAssessment.subject,
         duration: foundAssessment.duration,
-        totalMarks: foundAssessment.questionsCount * 15
+        totalMarks: assignedQuestions.reduce((sum, q) => sum + (q.marks || 15), 0)
       });
 
       // Timer format
@@ -268,37 +303,23 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       const pad = (n: number) => String(n).padStart(2, "0");
       setTimeLeft(`${pad(hr)}:${pad(min)}:00`);
 
-      const limit = foundAssessment.questionsCount;
-      const selectedQuestions = allQuestions.slice(0, limit);
-
-      if (selectedQuestions.length > 0) {
-        const mapped = selectedQuestions.map((q, idx) => {
-          const matchedStatic = STATIC_QUESTIONS.find(sq => sq.title.toLowerCase() === q.title.toLowerCase());
-          if (matchedStatic) {
-            return {
-              ...matchedStatic,
-              id: q.id,
-              num: idx + 1,
-              marks: q.marks,
-              difficulty: q.difficulty,
-              topic: q.topic
-            };
-          }
+      if (assignedQuestions.length > 0) {
+        const mapped = assignedQuestions.map((q, idx) => {
           return {
             id: q.id,
             num: idx + 1,
             title: q.title,
-            difficulty: q.difficulty,
-            topic: q.topic,
-            marks: q.marks,
-            description: `Problem statement for "${q.title}". Write a program in the selected language to solve the challenge.`,
-            inputFormat: "Standard keyboard console input.",
-            outputFormat: "Standard output matching problem requirements.",
-            constraints: "Time: 2000ms\nMemory: 256MB",
-            sampleInput: "No sample input defined.",
-            sampleOutput: "No sample output defined.",
-            explanation: "Process values dynamically.",
-            codeTemplates: {
+            difficulty: (q.difficulty === "Easy" || q.difficulty === "Medium" || q.difficulty === "Hard") ? q.difficulty : "Medium",
+            topic: q.topic || "General",
+            marks: q.marks || 15,
+            description: q.description || `Problem statement for "${q.title}". Write a program in the selected language to solve the challenge.`,
+            inputFormat: q.inputFormat || "Standard keyboard console input.",
+            outputFormat: q.outputFormat || "Standard output matching problem requirements.",
+            constraints: q.constraints || "Time: 2000ms\nMemory: 256MB",
+            sampleInput: q.sampleInput || "No sample input defined.",
+            sampleOutput: q.sampleOutput || "No sample output defined.",
+            explanation: q.explanation || "Process values dynamically.",
+            codeTemplates: (q.codeTemplates as any) || {
               c: `// Language: C\n#include <stdio.h>\n\nint main() {\n    // solve\n    return 0;\n}`,
               cpp: `// Language: C++17\n#include <iostream>\nusing namespace std;\n\nint main() {\n    // solve\n    return 0;\n}`,
               java: `// Language: Java 17\nclass Solution {\n    public static void main(String[] args) {\n        // solve\n    }\n}`,
@@ -451,6 +472,17 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       setShowSuspendModal(true);
       setShowWarningModal(false);
       triggerAutoSubmit(`Proctor violation threshold reached (${nextWarnings}/3 warnings).`);
+      
+      try {
+        const profile = loadStudentProfile();
+        if (profile && profile.roll) {
+          const studentsList = loadStudents();
+          const updated = studentsList.map(s => s.roll === profile.roll ? { ...s, status: "Suspended" as const } : s);
+          saveStudents(updated);
+        }
+      } catch (err) {
+        console.error("Failed to update student suspension status:", err);
+      }
     } else {
       setShowWarningModal(true);
     }
@@ -506,26 +538,98 @@ export default function StudentExamWorkspace({ params }: PageProps) {
   };
 
   // Run Code logic
-  const executeRunCode = () => {
+  const executeRunCode = async () => {
     if (isQuestionSubmitted || networkError) return;
     setIsRunning(true);
     setConsoleTab("output");
-    setConsoleOutput("Initializing compiler container...\nCompiling code units...\nExecuting test cases...");
+    setConsoleOutput("Initializing compiler container...\nCompiling code units...\nExecuting test cases...\n");
 
-    setTimeout(() => {
+    const codeToRun = codeContent[currentQuestion.id] || "";
+    const inputToRun = currentQuestion.sampleInput || "";
+
+    try {
+      const res = await fetch("/api/compile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code: codeToRun,
+          language: selectedLanguage,
+          input: inputToRun
+        })
+      });
+
+      const data = await res.json();
       setIsRunning(false);
-      setConsoleOutput(
-        `Execution Successful!\n` +
-        `-----------------------------\n` +
-        `Test Case 1: PASSED [OK]\n` +
-        `  Input:  ${currentQuestion.sampleInput}\n` +
-        `  Expected: ${currentQuestion.sampleOutput}\n` +
-        `  Actual:   ${currentQuestion.sampleOutput}\n\n` +
-        `Test Case 2: PASSED [OK]\n` +
-        `  Input:  Boundary edge cases validated.\n\n` +
-        `STATUS: RUN SUCCESS (All compile test cases verified)`
-      );
-      setTestCasesResults(prev => prev.map(tc => ({ ...tc, status: "passed" })));
+
+      if (data.status === "success") {
+        const { stdout, stderr, exitCode, error } = data;
+        
+        let outputMessage = "";
+        const actualOutput = (stdout || "").trim();
+        const expectedOutput = (currentQuestion.sampleOutput || "").trim();
+        
+        const flexibleMatch = (actual: string, expected: string): boolean => {
+          const cleanActual = actual.replace(/['"“”]/g, "").trim().toLowerCase();
+          const cleanExpected = expected.replace(/['"“”]/g, "").trim().toLowerCase();
+          
+          if (cleanActual === cleanExpected) return true;
+          
+          const boolMap: Record<string, string> = {
+            "true": "true", "1": "true", "yes": "true", "correct": "true",
+            "false": "false", "0": "false", "no": "false", "incorrect": "false"
+          };
+          if (boolMap[cleanActual] && boolMap[cleanActual] === boolMap[cleanExpected]) {
+            return true;
+          }
+          
+          const tokenize = (s: string) => s.replace(/[\[\],]/g, " ").split(/\s+/).filter(Boolean);
+          const tokensActual = tokenize(cleanActual);
+          const tokensExpected = tokenize(cleanExpected);
+          if (tokensActual.length === tokensExpected.length && tokensActual.length > 0) {
+            if (tokensActual.every((t, i) => t === tokensExpected[i])) {
+              return true;
+            }
+          }
+          
+          if (cleanActual.includes(cleanExpected) || cleanExpected.includes(cleanActual)) {
+            return true;
+          }
+          
+          return false;
+        };
+
+        const isMatch = flexibleMatch(actualOutput, expectedOutput);
+        const isSuccess = exitCode === 0 && !stderr;
+
+        if (isSuccess) {
+          outputMessage = `Execution Successful!\n`;
+          outputMessage += `-----------------------------\n`;
+          outputMessage += `Test Case 1: ${isMatch ? "PASSED [OK]" : "FAILED [WRONG ANSWER]"}\n`;
+          outputMessage += `  Input:    ${inputToRun}\n`;
+          outputMessage += `  Expected: ${currentQuestion.sampleOutput}\n`;
+          outputMessage += `  Actual:   ${stdout}\n`;
+          
+          if (isMatch) {
+            outputMessage += `\nSTATUS: RUN SUCCESS (All compile test cases verified)`;
+            setTestCasesResults(prev => prev.map(tc => ({ ...tc, status: "passed" })));
+          } else {
+            outputMessage += `\nSTATUS: WRONG ANSWER (Output mismatch)`;
+            setTestCasesResults(prev => prev.map(tc => tc.id === 1 ? { ...tc, status: "failed" } : { ...tc, status: "passed" }));
+          }
+        } else {
+          outputMessage = stderr ? `Error Output:\n${stderr}` : `Execution Failed with Exit Code ${exitCode}`;
+          if (error) {
+            outputMessage += `\nError Details: ${error}`;
+          }
+          outputMessage += `\n\nSTATUS: RUN FAILED`;
+          setTestCasesResults(prev => prev.map(tc => ({ ...tc, status: "failed" })));
+        }
+
+        setConsoleOutput(outputMessage);
+      } else {
+        setConsoleOutput(`Compiler Error:\n${data.message || "Failed to execute compile routine."}\n\nSTATUS: RUN FAILED`);
+        setTestCasesResults(prev => prev.map(tc => ({ ...tc, status: "failed" })));
+      }
 
       // Mark question state as attempted
       setQuestionStates(prev => {
@@ -534,15 +638,22 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         }
         return prev;
       });
-    }, 1200);
+
+    } catch (err: any) {
+      setIsRunning(false);
+      setConsoleOutput(`Compiler Service Connection Error:\n${err.message || "Unable to reach the compiler backend."}\n\nSTATUS: RUN FAILED`);
+      setTestCasesResults(prev => prev.map(tc => ({ ...tc, status: "failed" })));
+    }
   };
 
   // Submit Question Solution logic
   const executeSubmitCode = () => {
     if (isQuestionSubmitted || networkError) return;
-    const confirmSubmit = window.confirm("Are you sure you want to submit code for Q" + currentQuestion.num + "? This will lock your editor updates.");
-    if (!confirmSubmit) return;
+    setShowSubmitModal(true);
+  };
 
+  const confirmAndExecuteSubmitCode = () => {
+    setShowSubmitModal(false);
     setConsoleTab("output");
     setConsoleOutput("Running code through secure institutional test harness...\nEvaluating inputs...");
 
@@ -579,8 +690,47 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     router.push("/student/dashboard");
   };
 
+  if (!isScheduledDate) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center space-y-6 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-extrabold text-white">Assessment Environment Locked</h3>
+            <p className="text-slate-400 font-medium leading-relaxed text-xs">
+              This examination is scheduled for <span className="font-bold text-white">{scheduledDateStr || "a different date"}</span>. 
+              You can only write this assessment during its scheduled time.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+            <div className="flex justify-between">
+              <span>Scheduled Date:</span>
+              <span className="font-bold text-white">{scheduledDateStr}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Today's Date:</span>
+              <span className="font-bold text-white">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Security Access:</span>
+              <span className="font-bold text-rose-500 uppercase">Blocked</span>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/student/dashboard")}
+            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider"
+          >
+            Exit Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className={`min-h-screen bg-slate-950 flex flex-col font-sans select-none overflow-hidden ${
+    <div className={`min-h-screen bg-slate-955 flex flex-col font-sans select-none overflow-hidden ${
       highContrast ? "high-contrast" : ""
     }`}>
       
@@ -1066,7 +1216,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
                 Are you ready to submit your exam paper?
               </p>
               
-              <p className="text-slate-600">
+              <p className="text-slate-650">
                 You are about to submit your entire assessment. This will submit all code solutions and close your active compiler session. You will not be able to re-enter.
               </p>
 
@@ -1088,6 +1238,49 @@ export default function StudentExamWorkspace({ params }: PageProps) {
                   className="bg-emerald-700 hover:bg-emerald-800 text-white px-4 py-2 rounded font-bold"
                 >
                   Submit Assessment
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Submit Code Confirmation Dialog Popup */}
+      {showSubmitModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-slate-900 border border-slate-800 text-slate-100 max-w-sm w-full rounded-lg shadow-2xl overflow-hidden text-xs leading-relaxed animate-in zoom-in-95 duration-200">
+            <div className="bg-slate-955 px-4 py-3 text-slate-205 border-b border-slate-800 flex items-center gap-2 font-sans font-bold">
+              <Terminal className="w-5 h-5 text-blue-500" />
+              <h5 className="font-extrabold text-sm uppercase tracking-wide">Confirm Code Submission</h5>
+            </div>
+            
+            <div className="p-5 space-y-4 font-sans text-slate-300">
+              <p className="font-bold text-slate-200 text-sm">
+                Submit solution for Question {currentQuestion.num}?
+              </p>
+              
+              <p className="text-slate-400">
+                Are you sure you want to submit code for Q{currentQuestion.num}? This will lock your editor updates and you will no longer be able to modify the solution for this question.
+              </p>
+
+              <div className="bg-slate-950 border border-slate-800 p-3 rounded font-mono text-[9px] text-slate-400 space-y-1">
+                <p>• Action: Lock Editor Updates</p>
+                <p>• Target: Problem {currentQuestion.num} - {currentQuestion.title}</p>
+                <p>• Status: Lock on Submission</p>
+              </div>
+
+              <div className="flex gap-2 justify-end pt-2 border-t border-slate-800">
+                <button
+                  onClick={() => setShowSubmitModal(false)}
+                  className="bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-300 px-3.5 py-2 rounded font-bold transition-all"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={confirmAndExecuteSubmitCode}
+                  className="bg-blue-600 hover:bg-blue-500 text-white px-4 py-2 rounded font-bold transition-all"
+                >
+                  Confirm & Submit
                 </button>
               </div>
             </div>

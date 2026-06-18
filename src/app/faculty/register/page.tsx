@@ -78,7 +78,7 @@ export default function FacultyRegister() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     
@@ -86,21 +86,27 @@ export default function FacultyRegister() {
     
     setIsLoading(true);
 
-    // Save to storage
-    setTimeout(() => {
-      const profile = {
-        fullName: formData.fullName,
-        employeeId: formData.employeeId,
-        email: formData.email,
-        department: formData.department,
-        designation: formData.designation,
-        collegeName: formData.collegeName
-      };
-      saveFacultyProfile(profile);
+    try {
+      const res = await fetch("/api/faculty/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(formData),
+      });
 
+      const data = await res.json();
+
+      if (res.ok && data.status === "success") {
+        saveFacultyProfile(data.profile);
+        localStorage.setItem("examcoder_auth_token", data.token);
+        router.push("/faculty/dashboard");
+      } else {
+        setIsLoading(false);
+        setErrors({ general: data.message || "Registration failed." });
+      }
+    } catch (err) {
       setIsLoading(false);
-      router.push("/faculty/dashboard");
-    }, 1000);
+      setErrors({ general: "Failed to connect to the authentication server." });
+    }
   };
 
   return (
@@ -112,7 +118,14 @@ export default function FacultyRegister() {
       <form onSubmit={handleSubmit} className="space-y-4 font-sans text-xs">
         
         {/* Global Error Banner */}
-        {Object.keys(errors).length > 0 && !errors.agreeTerms && (
+        {errors.general && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-md flex gap-2 items-center" role="alert">
+            <AlertCircle className="w-4 h-4 shrink-0" />
+            <span className="font-semibold">{errors.general}</span>
+          </div>
+        )}
+
+        {Object.keys(errors).length > 0 && !errors.agreeTerms && !errors.general && (
           <div className="bg-rose-50 border border-rose-200 text-rose-800 p-2.5 rounded-md flex gap-2 items-center" role="alert">
             <AlertCircle className="w-4 h-4 shrink-0" />
             <span className="font-semibold">Please correct the highlighted fields in the sections below.</span>

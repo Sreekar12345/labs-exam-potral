@@ -1,6 +1,6 @@
 "use client";
 
-import React, { use } from "react";
+import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { 
   ArrowLeft, 
@@ -16,6 +16,7 @@ import {
   Phone,
   BookOpen
 } from "lucide-react";
+import { loadStudents, saveStudents } from "@/lib/storage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -34,24 +35,48 @@ export default function StudentProfile({ params }: PageProps) {
   // Resolve params promise according to Next.js 15 App Router standards
   const { id } = use(params);
 
-  // Mock Student Database query by ID
-  const studentData = {
-    id: id || "1",
-    roll: "22CSE102",
-    name: "Aditya Verma",
-    dept: "CSE",
-    year: "3rd Year",
-    section: "A",
-    email: "aditya.22cse@psg.edu",
+  // Dynamic Student details State
+  const [studentData, setStudentData] = useState({
+    id: "1",
+    roll: id || "Loading...",
+    name: "Loading...",
+    dept: "...",
+    year: "...",
+    section: "...",
+    email: "...",
     phone: "+91 98765 43210",
-    status: "Active" as const,
-    lastLogin: "2026-06-17 10:42",
+    status: "Active" as "Active" | "Inactive" | "Suspended",
+    lastLogin: "Never",
     avgScore: "8.8 / 10",
     highestScore: "10.0 / 10",
     lowestScore: "7.0 / 10",
     completionRate: "100%",
     attemptedCount: 8
-  };
+  });
+
+  useEffect(() => {
+    const studentsList = loadStudents();
+    const found = studentsList.find(s => s.roll === id || s.id === id);
+    if (found) {
+      setStudentData({
+        id: found.id,
+        roll: found.roll,
+        name: found.name,
+        dept: found.dept || "CSE",
+        year: found.year || "3rd Year",
+        section: found.section || "A",
+        email: found.email,
+        phone: "+91 98765 43210",
+        status: (found.status === "Active" || found.status === "Inactive" || found.status === "Suspended") ? found.status : "Active",
+        lastLogin: found.lastLogin || "Never",
+        avgScore: found.status === "Suspended" ? "2.0 / 10" : "8.8 / 10",
+        highestScore: found.status === "Suspended" ? "5.0 / 10" : "10.0 / 10",
+        lowestScore: "7.0 / 10",
+        completionRate: found.status === "Suspended" ? "25%" : "100%",
+        attemptedCount: found.status === "Suspended" ? 2 : 8
+      });
+    }
+  }, [id]);
 
   const examHistory: AssessmentHistory[] = [
     { id: "1", name: "CS201 Data Structures Lab Final Exam", score: "9.0 / 10.0", date: "2026-06-17", status: "Pass", timeTaken: "112 mins" },
@@ -62,7 +87,7 @@ export default function StudentProfile({ params }: PageProps) {
   ];
 
   const recentActivity = [
-    { time: "11:42 AM", event: "Successfully compiled Q3 (Invert Binary Tree) on Node-3 [OK]", type: "compile" },
+    { time: "11:42 AM", event: `Successfully compiled Q3 (Invert Binary Tree) on Node-3 [OK] for ${studentData.name}`, type: "compile" },
     { time: "10:42 AM", event: "Logged in from Computer Lab 1, Terminal IP 192.168.12.104", type: "system" },
     { time: "June 15, 01:22 PM", event: "Submitted CS304 Solutions (All hidden cases verified)", type: "submission" }
   ];
@@ -137,8 +162,14 @@ export default function StudentProfile({ params }: PageProps) {
                 <span className="block font-bold text-slate-500 uppercase text-[9px] tracking-wider">Account Telemetry Controls</span>
                 <div className="flex gap-2">
                   <select 
-                    defaultValue={studentData.status}
-                    onChange={(e) => alert(`Simulation: Status updated to ${e.target.value}`)}
+                    value={studentData.status}
+                    onChange={(e) => {
+                      const newStatus = e.target.value as "Active" | "Inactive" | "Suspended";
+                      const studentsList = loadStudents();
+                      const updated = studentsList.map(s => (s.id === studentData.id || s.roll === studentData.roll) ? { ...s, status: newStatus } : s);
+                      saveStudents(updated);
+                      setStudentData(prev => ({ ...prev, status: newStatus }));
+                    }}
                     className="flex-1 text-slate-900 border border-slate-200 rounded px-2 py-1 bg-white focus:outline-hidden"
                   >
                     <option value="Active">Active status</option>
@@ -146,7 +177,25 @@ export default function StudentProfile({ params }: PageProps) {
                     <option value="Suspended">Suspended status</option>
                   </select>
                   <button 
-                    onClick={() => alert(`Simulation: Temporary default password reset for ${studentData.roll}`)}
+                    onClick={async () => {
+                      const tempPassword = `PSG@${studentData.id.slice(0, 5)}`;
+                      try {
+                        const res = await fetch("/api/student/reset-password", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ id: studentData.id, newPassword: tempPassword }),
+                        });
+                        const data = await res.json();
+                        if (data.status === "success") {
+                          alert(`Password for ${studentData.name} has been reset to: ${tempPassword}`);
+                        } else {
+                          alert(`Failed to reset password: ${data.message}`);
+                        }
+                      } catch (err) {
+                        console.error(err);
+                        alert("Failed to reset password due to network error.");
+                      }
+                    }}
                     className="bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 font-bold px-3 py-1 rounded"
                   >
                     Reset Password

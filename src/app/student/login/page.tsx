@@ -39,7 +39,7 @@ export default function StudentLogin() {
   };
 
   // Submit handler
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrors({});
     
@@ -47,32 +47,27 @@ export default function StudentLogin() {
     
     setIsLoading(true);
 
-    // Verify credentials
-    setTimeout(() => {
-      const allStudents = loadStudents();
-      const matchedStudent = allStudents.find(s => s.roll.toUpperCase() === rollNumber.toUpperCase());
-      
-      const profile = matchedStudent ? {
-        roll: matchedStudent.roll,
-        name: matchedStudent.name,
-        email: matchedStudent.email,
-        dept: matchedStudent.dept === "CSE" ? "Computer Science" : matchedStudent.dept,
-        year: matchedStudent.year,
-        section: matchedStudent.section,
-        ip: "192.168.12.104"
-      } : {
-        roll: rollNumber.toUpperCase(),
-        name: "Mock Student",
-        email: `${rollNumber.toLowerCase()}@psg.edu`,
-        dept: "Computer Science",
-        year: "3rd Year",
-        section: "A",
-        ip: "192.168.12.104"
-      };
+    try {
+      const res = await fetch("/api/student/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ rollNumber, password }),
+      });
 
-      saveStudentProfile(profile);
-      router.push("/student/dashboard");
-    }, 1000);
+      const data = await res.json();
+
+      if (res.ok && data.status === "success") {
+        saveStudentProfile(data.profile);
+        localStorage.setItem("examcoder_auth_token", data.token);
+        router.push("/student/dashboard");
+      } else {
+        setIsLoading(false);
+        setErrors({ general: data.message || "Invalid academic credentials." });
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setErrors({ general: "Failed to connect to the authentication server." });
+    }
   };
 
   return (
@@ -94,11 +89,6 @@ export default function StudentLogin() {
           </div>
         )}
 
-        {/* Info card for sandbox testing */}
-        <div className="bg-slate-50 border border-slate-200 p-2.5 rounded text-[11px] text-slate-600 space-y-0.5">
-          <p className="font-bold text-slate-800">Sandbox Preview Tip:</p>
-          <p>You can enter any roll number and a 6-character password to access the mock student dashboard workspace.</p>
-        </div>
 
         {/* Roll Number Input */}
         <div className="space-y-1">
