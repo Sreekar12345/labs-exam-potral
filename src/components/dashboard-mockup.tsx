@@ -13,7 +13,7 @@ import {
   Lock,
   ArrowRight
 } from "lucide-react";
-import { loadAssessments, loadStudents, loadQuestions } from "@/lib/storage";
+import { loadAssessments, loadStudents, loadQuestions, loadFacultyProfile } from "@/lib/storage";
 
 interface LogEntry {
   id: string;
@@ -30,12 +30,19 @@ export default function DashboardMockup() {
   const [assessments, setAssessments] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
 
+  const [facultyCollege, setFacultyCollege] = useState("PSG College of Technology");
+
   useEffect(() => {
     if (typeof window !== "undefined") {
       const asms = loadAssessments();
       setAssessments(asms);
       const studs = loadStudents();
       setStudents(studs);
+
+      const profile = loadFacultyProfile();
+      if (profile.collegeName) {
+        setFacultyCollege(profile.collegeName);
+      }
 
       const active = asms.filter(a => a.status === "Active");
       if (active.length > 0 && studs.length > 0) {
@@ -170,7 +177,7 @@ export default function DashboardMockup() {
             <h3 className="font-semibold text-sm tracking-wide">EXAMCODER ADMIN</h3>
             <p className="text-slate-400 text-xs flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse inline-block"></span>
-              PSG College of Technology • Server Node-3
+              {facultyCollege} • Server Node-3
             </p>
           </div>
         </div>
