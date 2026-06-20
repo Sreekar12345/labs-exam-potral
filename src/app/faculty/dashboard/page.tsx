@@ -1363,7 +1363,7 @@ export default function FacultyDashboard() {
                   <Activity className="w-3.5 h-3.5 text-emerald-400" /> Open Surveillance Control Room
                 </Link>
               </div>
-              <DashboardMockup />
+              <DashboardMockup collegeName={faculty.collegeName} />
             </div>
           )}
 

@@ -309,7 +309,20 @@ export default function ReportDetailsPage({ params }: PageProps) {
   }, [studentsWithScores]);
 
   const handlePrint = () => {
+    const originalTitle = document.title;
+    let filename = "LAB_EXAM_Report";
+    if (report) {
+      if (report.category === "Student" || report.category === "TopPerformers") {
+        filename = "LAB_EXAM_Student_Report";
+      } else {
+        filename = "LAB_EXAM_Faculty_Report";
+      }
+    }
+    document.title = filename;
     window.print();
+    setTimeout(() => {
+      document.title = originalTitle;
+    }, 100);
   };
 
   const handleDownload = (format: "CSV" | "Excel") => {
@@ -469,7 +482,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
                 </div>
                 <div>
                   <h2 className="font-extrabold text-sm tracking-tight text-slate-950 uppercase leading-snug">
-                    {faculty.collegeName.toUpperCase()}
+                    {(faculty.collegeName || "PSG College of Technology").toUpperCase()}
                   </h2>
                   <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
                     Department of {faculty.department}

@@ -1,0 +1,9 @@
+{
+  "name": "LAB EXAM",
+  "short_name": "LAB EXAM",
+  "description": "LAB EXAM Portal",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#1b2a3c"
+}

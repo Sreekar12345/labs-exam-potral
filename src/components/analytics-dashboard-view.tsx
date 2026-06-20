@@ -353,7 +353,12 @@ export default function AnalyticsDashboardView({
   // Executing document exports
   const handleExport = (format: "PDF" | "Excel" | "CSV") => {
     if (format === "PDF") {
+      const originalTitle = document.title;
+      document.title = "LAB_EXAM_Faculty_Report";
       window.print();
+      setTimeout(() => {
+        document.title = originalTitle;
+      }, 100);
       return;
     }
 

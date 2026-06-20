@@ -13,7 +13,7 @@ import {
   Lock,
   ArrowRight
 } from "lucide-react";
-import { loadAssessments, loadStudents, loadQuestions, loadFacultyProfile } from "@/lib/storage";
+import { loadAssessments, loadStudents, loadQuestions, loadFacultyProfile, loadStudentProfile } from "@/lib/storage";
 
 interface LogEntry {
   id: string;
@@ -24,13 +24,17 @@ interface LogEntry {
   status: "warning" | "critical" | "success" | "info";
 }
 
-export default function DashboardMockup() {
+interface DashboardMockupProps {
+  collegeName?: string;
+}
+
+export default function DashboardMockup({ collegeName }: DashboardMockupProps) {
   const [activeTab, setActiveTab] = useState<"monitoring" | "exams">("monitoring");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
 
-  const [facultyCollege, setFacultyCollege] = useState("PSG College of Technology");
+  const [facultyCollege, setFacultyCollege] = useState(collegeName || "PSG College of Technology");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -39,9 +43,18 @@ export default function DashboardMockup() {
       const studs = loadStudents();
       setStudents(studs);
 
-      const profile = loadFacultyProfile();
-      if (profile.collegeName) {
-        setFacultyCollege(profile.collegeName);
+      if (collegeName) {
+        setFacultyCollege(collegeName);
+      } else {
+        const profile = loadFacultyProfile();
+        if (profile.collegeName) {
+          setFacultyCollege(profile.collegeName);
+        } else {
+          const studentProfile = loadStudentProfile();
+          if (studentProfile.collegeName) {
+            setFacultyCollege(studentProfile.collegeName);
+          }
+        }
       }
 
       const active = asms.filter(a => a.status === "Active");
@@ -71,7 +84,7 @@ export default function DashboardMockup() {
         setLogs(generatedLogs);
       }
     }
-  }, []);
+  }, [collegeName]);
 
   const activeExams = assessments.filter(a => a.status === "Active" || a.status === "In Progress");
   const hasActive = activeExams.length > 0;

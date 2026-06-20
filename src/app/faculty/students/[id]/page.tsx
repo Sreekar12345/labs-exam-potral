@@ -32,7 +32,7 @@ interface AssessmentHistory {
 }
 
 export default function StudentProfile({ params }: PageProps) {
-  // Resolve params promise according to Next.js 15 App Router standards
+  // Resolve params promise according to LAB EXAM App Router standards
   const { id } = use(params);
 
   // Dynamic Student details State
