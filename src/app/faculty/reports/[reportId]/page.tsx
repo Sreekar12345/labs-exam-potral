@@ -9,10 +9,12 @@ import {
   loadAssessments,
   loadFacultyProfile, 
   loadQuestions,
+  loadExamSessions,
   ReportLog,
   Student,
   Assessment,
-  Question
+  Question,
+  ExamSession
 } from "@/lib/storage";
 import { 
   ArrowLeft, 
@@ -45,6 +47,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
   const [students, setStudents] = useState<Student[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
   const [questions, setQuestions] = useState<Question[]>([]);
+  const [examSessions, setExamSessions] = useState<ExamSession[]>([]);
   const [faculty, setFaculty] = useState({
     fullName: "Dr. Ramesh Sharma",
     department: "CSE",
@@ -80,19 +83,33 @@ export default function ReportDetailsPage({ params }: PageProps) {
     setAssessments(loadAssessments());
     setQuestions(loadQuestions());
     setFaculty(loadFacultyProfile());
+    setExamSessions(loadExamSessions());
     setGeneratedTime(new Date().toLocaleString());
     setIsLoading(false);
   }, [reportId]);
 
   // Dynamic selector logic to remove static mock data
   const studentsWithScores = React.useMemo(() => {
+    const primaryAssessmentId = assessments[0]?.id || "1";
     return students.map((s) => {
       const isSuspended = s.status === "Suspended";
       const hash = s.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-      const score = isSuspended ? 0 : Math.round(30 + (hash % 20));
-      return { ...s, score };
-    }).sort((a, b) => b.score - a.score);
-  }, [students]);
+      
+      const session = examSessions.find(
+        (es) => es.studentRoll === s.roll && es.assessmentId === primaryAssessmentId
+      );
+
+      const hasSubmitted = session && session.submittedAt;
+      const score = isSuspended ? 0 : (hasSubmitted ? Math.round(30 + (hash % 20)) : null);
+      const statusStr = isSuspended ? "Suspended" : (session ? (session.submittedAt ? "SUBMITTED" : "IN PROGRESS") : "NOT ATTEMPTED");
+
+      return { ...s, score, statusStr };
+    }).sort((a, b) => {
+      if (a.score === null) return 1;
+      if (b.score === null) return -1;
+      return b.score - a.score;
+    });
+  }, [students, examSessions, assessments]);
 
   const dynamicQuestions = React.useMemo(() => {
     const questionsList = questions.length > 0 ? questions : [
@@ -276,9 +293,11 @@ export default function ReportDetailsPage({ params }: PageProps) {
       csvContent += "Rank,Roll Number,Student Name,Score,Percentage,Status\n";
       studentsWithScores.forEach((student, index) => {
         const isSuspended = student.status === "Suspended";
-        const percentage = student.score ? `${((student.score / 50) * 100).toFixed(1)}%` : "0%";
-        const statusStr = isSuspended ? "DISQUALIFIED" : "SUBMITTED";
-        csvContent += `"${isSuspended ? "—" : index + 1}","${student.roll}","${student.name}","${isSuspended ? "0" : student.score} / 50","${isSuspended ? "0%" : percentage}","${statusStr}"\n`;
+        const hasScore = student.score !== null;
+        const percentage = hasScore ? `${((student.score! / 50) * 100).toFixed(1)}%` : "N/A";
+        const scoreDisplay = hasScore ? `${student.score} / 50` : "N/A";
+        const statusStr = isSuspended ? "DISQUALIFIED" : student.statusStr;
+        csvContent += `"${(!hasScore || isSuspended) ? "—" : index + 1}","${student.roll}","${student.name}","${isSuspended ? "0 / 50" : scoreDisplay}","${isSuspended ? "0%" : percentage}","${statusStr || "NOT ATTEMPTED"}"\n`;
       });
     } else if (report.category === "Question") {
       csvContent += "Question Description,Attempts,Correct,Incorrect,Success Rate,Avg Time,Avg Score\n";
@@ -589,26 +608,35 @@ export default function ReportDetailsPage({ params }: PageProps) {
                     <tbody className="divide-y divide-slate-150 font-mono">
                       {studentsWithScores.map((student, index) => {
                         const isSuspended = student.status === "Suspended";
-                        const percentage = student.score ? `${((student.score / 50) * 100).toFixed(1)}%` : "0%";
+                        const hasScore = student.score !== null;
+                        const percentage = hasScore ? `${((student.score! / 50) * 100).toFixed(1)}%` : "N/A";
+                        const scoreDisplay = hasScore ? `${student.score} / 50` : "N/A";
                         
+                        let badgeBg = "bg-slate-100 text-slate-650 border border-slate-200";
+                        if (isSuspended) {
+                          badgeBg = "bg-rose-50 text-rose-800 border border-rose-100";
+                        } else if (student.statusStr === "SUBMITTED") {
+                          badgeBg = "bg-emerald-50 text-emerald-800 border border-emerald-100";
+                        } else if (student.statusStr === "IN PROGRESS") {
+                          badgeBg = "bg-blue-50 text-blue-800 border border-blue-100";
+                        }
+
                         return (
                           <tr key={student.id} className="hover:bg-slate-50/50">
                             <td className="py-2 px-3 text-center font-bold text-slate-900">
-                              {isSuspended ? "—" : index + 1}
+                              {(!hasScore || isSuspended) ? "—" : index + 1}
                             </td>
                             <td className="py-2 px-3 font-bold text-slate-800">{student.roll}</td>
                             <td className="py-2 px-3 font-sans font-medium text-slate-900">{student.name}</td>
                             <td className="py-2 px-3 text-center font-bold text-slate-900">
-                              {isSuspended ? "00" : `${student.score} / 50`}
+                              {isSuspended ? "00 / 50" : scoreDisplay}
                             </td>
-                            <td className="py-2 px-3 text-center text-slate-700">
+                            <td className="py-2 px-3 text-center text-slate-700 font-medium">
                               {isSuspended ? "0%" : percentage}
                             </td>
                             <td className="py-2 px-3 text-right">
-                              <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-sans uppercase ${
-                                isSuspended ? "bg-rose-50 text-rose-800 border border-rose-100" : "bg-emerald-50 text-emerald-800 border border-emerald-100"
-                              }`}>
-                                {isSuspended ? "DISQUALIFIED" : "SUBMITTED"}
+                              <span className={`px-2 py-0.5 rounded text-[8px] font-bold font-sans uppercase ${badgeBg}`}>
+                                {isSuspended ? "DISQUALIFIED" : (student.statusStr || "NOT ATTEMPTED")}
                               </span>
                             </td>
                           </tr>
