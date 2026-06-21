@@ -39,69 +39,60 @@ interface MockExam {
 function isSameDate(scheduledDateStr: string): boolean {
   if (!scheduledDateStr) return false;
   
-  const today = new Date();
-  const todayYear = today.getFullYear();
-  const todayMonth = today.getMonth();
-  const todayDay = today.getDate();
-
+  const now = new Date();
   const cleanStr = scheduledDateStr.trim().toLowerCase();
   
-  if (cleanStr.includes("/")) {
-    const parts = cleanStr.split("/");
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const year = parseInt(parts[2], 10);
-      return todayYear === year && todayMonth === month && todayDay === day;
-    }
-  }
-
-  if (cleanStr.includes("-")) {
-    const parts = cleanStr.split("-");
-    if (parts.length === 3) {
-      const year = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const day = parseInt(parts[2], 10);
-      return todayYear === year && todayMonth === month && todayDay === day;
-    }
-  }
-
-  const months = [
-    "jan", "feb", "mar", "apr", "may", "jun",
-    "jul", "aug", "sep", "oct", "nov", "dec"
-  ];
-  const fullMonths = [
-    "january", "february", "march", "april", "may", "june",
-    "july", "august", "september", "october", "november", "december"
-  ];
-
-  try {
+  // Check if ISO format YYYY-MM-DDTHH:mm
+  if (cleanStr.includes("t")) {
     const parsedDate = new Date(scheduledDateStr);
     if (!isNaN(parsedDate.getTime())) {
-      return todayYear === parsedDate.getFullYear() &&
-             todayMonth === parsedDate.getMonth() &&
-             todayDay === parsedDate.getDate();
+      return now.getTime() >= parsedDate.getTime();
     }
-  } catch (e) {
-    // ignore
   }
 
-  const words = cleanStr.replace(/,/g, "").split(/\s+/);
-  if (words.length >= 3) {
-    const year = parseInt(words.find(w => w.length === 4 && !isNaN(Number(w))) || "", 10);
-    const day = parseInt(words.find(w => w.length <= 2 && !isNaN(Number(w))) || "", 10);
-    const monthWord = words.find(w => isNaN(Number(w))) || "";
-    let monthIdx = -1;
-    for (let i = 0; i < 12; i++) {
-      if (monthWord.startsWith(months[i]) || monthWord.startsWith(fullMonths[i])) {
-        monthIdx = i;
-        break;
+  // Handle DD/MM/YYYY format which may include time like "22/06/2026 10:A.M"
+  if (cleanStr.includes("/")) {
+    const parts = cleanStr.split(/\s+/);
+    const dateParts = parts[0].split("/");
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const year = parseInt(dateParts[2], 10);
+      
+      let hours = 0;
+      let minutes = 0;
+      
+      if (parts[1]) {
+        const timeStr = parts.slice(1).join(" ");
+        const isPM = timeStr.includes("p.m") || timeStr.includes("pm") || timeStr.includes("p");
+        const isAM = timeStr.includes("a.m") || timeStr.includes("am") || timeStr.includes("a");
+        const timeMatch = timeStr.match(/(\d+)(?::(\d+))?/);
+        if (timeMatch) {
+          hours = parseInt(timeMatch[1], 10);
+          if (timeMatch[2]) {
+            minutes = parseInt(timeMatch[2], 10);
+          }
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+        }
+      }
+      
+      const parsedDate = new Date(year, month, day, hours, minutes, 0, 0);
+      if (!isNaN(parsedDate.getTime())) {
+        return now.getTime() >= parsedDate.getTime();
       }
     }
+  }
 
-    if (!isNaN(year) && !isNaN(day) && monthIdx !== -1) {
-      return todayYear === year && todayMonth === monthIdx && todayDay === day;
-    }
+  // Fallback to standard JS Date parsing
+  const cleanStandard = scheduledDateStr
+    .replace(/a\.m\./gi, "AM")
+    .replace(/p\.m\./gi, "PM")
+    .replace(/a\.m/gi, "AM")
+    .replace(/p\.m/gi, "PM");
+  const parsedDate = new Date(cleanStandard);
+  if (!isNaN(parsedDate.getTime())) {
+    return now.getTime() >= parsedDate.getTime();
   }
 
   return false;
