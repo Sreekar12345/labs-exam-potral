@@ -119,6 +119,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
   const [isScheduledDate, setIsScheduledDate] = useState(true);
   const [scheduledDateStr, setScheduledDateStr] = useState("");
   const [studentCollege, setStudentCollege] = useState("Gouthami Institute of Technology and Management for Women");
+  const [hasAlreadySubmitted, setHasAlreadySubmitted] = useState(false);
 
   useEffect(() => {
     const assessments = loadAssessments();
@@ -159,6 +160,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
       });
       setScheduledDateStr(found.date);
       setIsScheduledDate(isSameDate(found.date));
+      setHasAlreadySubmitted(existingSession ? existingSession.submittedAt !== null : false);
     }
   }, [id]);
 
@@ -249,6 +251,68 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
     // Launch exam runner
     router.push(`/student/exam/${examData.id}`);
   };
+
+  if (hasAlreadySubmitted) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">
+        <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30 font-sans text-xs">
+          <div className="flex items-center gap-3">
+            <Link 
+              href="/student/dashboard" 
+              className="text-slate-500 hover:text-slate-800 transition-colors mr-2 p-1.5 hover:bg-slate-100 rounded-md focus-ring flex items-center gap-1.5 font-bold"
+            >
+              <ArrowLeft className="w-3.5 h-3.5" /> Back to Portal
+            </Link>
+            <div className="h-4 w-[1px] bg-slate-200"></div>
+            <div>
+              <h2 className="text-sm font-bold text-slate-900 tracking-tight">{examData.name}</h2>
+              <p className="text-[10px] text-slate-400 font-mono mt-0.5">Course ID: {examData.subject} • Roster Status: Completed</p>
+            </div>
+          </div>
+          <div className="bg-emerald-50 border border-emerald-250 px-3 py-1 rounded text-emerald-700 font-mono font-bold text-[10px] uppercase">
+            Submitted
+          </div>
+        </header>
+
+        <main className="max-w-md w-full mx-auto p-6 md:p-8 flex-1 flex flex-col justify-center items-center">
+          <div className="bg-white border border-slate-200 rounded-lg p-8 space-y-6 shadow-2xs text-center">
+            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 flex items-center justify-center mx-auto">
+              <CheckCircle className="w-6 h-6 text-emerald-700" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-sm font-extrabold text-slate-950">Assessment Completed</h3>
+              <p className="text-slate-500 font-medium leading-relaxed text-xs">
+                You have already successfully submitted this examination. Re-entry into the secure sandbox workstation is restricted.
+              </p>
+            </div>
+
+            <div className="bg-slate-50 p-4 border border-slate-200 rounded-lg text-slate-650 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+              <div className="flex justify-between">
+                <span>Assessment:</span>
+                <span className="font-bold text-slate-900">{examData.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Subject Code:</span>
+                <span className="font-bold text-slate-900">{examData.subject}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Status:</span>
+                <span className="font-bold text-emerald-700 uppercase">Completed</span>
+              </div>
+            </div>
+
+            <Link
+              href="/student/dashboard"
+              className="block w-full bg-slate-900 hover:bg-slate-955 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider shadow-xs text-center"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   if (!isScheduledDate) {
     return (

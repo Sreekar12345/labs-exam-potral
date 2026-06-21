@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments } from "@/lib/storage";
+import { loadAssessments, loadStudentProfile, loadExamSessions } from "@/lib/storage";
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -101,6 +101,9 @@ export default function StudentAssessmentsList() {
   const [exams, setExams] = useState<MockExam[]>([]);
 
   useEffect(() => {
+    const studentProfile = loadStudentProfile();
+    const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+    const sessions = loadExamSessions();
     const storageAssessments = loadAssessments();
     const mapped: MockExam[] = storageAssessments.map(a => {
       let status: "Active" | "Upcoming" | "Completed" = "Upcoming";
@@ -110,6 +113,12 @@ export default function StudentAssessmentsList() {
       // Override status to Upcoming if today is not the scheduled date of the exam
       if (status === "Active" && !isSameDate(a.date)) {
         status = "Upcoming";
+      }
+
+      // Override status to Completed if student has already submitted a session for this exam
+      const hasSubmitted = sessions.some(s => s.studentRoll === studentRoll && s.assessmentId === a.id && s.submittedAt !== null);
+      if (hasSubmitted) {
+        status = "Completed";
       }
       
       return {
