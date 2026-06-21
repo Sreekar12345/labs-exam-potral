@@ -482,7 +482,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
                 </div>
                 <div>
                   <h2 className="font-extrabold text-sm tracking-tight text-slate-950 uppercase leading-snug">
-                    {(faculty.collegeName || "LAB EXAM").toUpperCase()}
+                    {(faculty.collegeName || "GITAMW Tech Node").toUpperCase()}
                   </h2>
                   <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
                     Department of {faculty.department}

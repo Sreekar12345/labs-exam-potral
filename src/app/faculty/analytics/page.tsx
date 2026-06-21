@@ -47,7 +47,7 @@ export default function FacultyAnalyticsPage() {
             className="flex items-center gap-4 cursor-pointer hover:bg-slate-50 p-1.5 rounded-lg transition-colors"
           >
             <span className="bg-slate-100 text-slate-700 px-2 py-0.5 rounded text-[10px] font-bold">
-              {faculty.collegeName || "LAB EXAM"}
+              {faculty.collegeName || "GITAMW Tech Node"}
             </span>
             <div className="text-right hidden sm:block border-r border-slate-200 pr-3">
               <p className="font-bold text-slate-800">{faculty.fullName}</p>
@@ -79,7 +79,7 @@ export default function FacultyAnalyticsPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-slate-455">Institution:</span>
-                  <span className="text-slate-800 font-medium">{faculty.collegeName || "LAB EXAM"}</span>
+                  <span className="text-slate-800 font-medium">{faculty.collegeName || "GITAMW Tech Node"}</span>
                 </div>
               </div>
               <div className="border-t border-slate-150 pt-2 flex justify-end">

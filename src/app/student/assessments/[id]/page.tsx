@@ -127,7 +127,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
 
   const [isScheduledDate, setIsScheduledDate] = useState(true);
   const [scheduledDateStr, setScheduledDateStr] = useState("");
-  const [studentCollege, setStudentCollege] = useState("LAB EXAM");
+  const [studentCollege, setStudentCollege] = useState("GITAMW Tech Node");
 
   useEffect(() => {
     const assessments = loadAssessments();

@@ -98,7 +98,7 @@ export async function POST(request: Request) {
             name: s.name,
             email: s.email,
             mobile: s.mobile || "9876543210",
-            collegeName: s.collegeName || "PSG College of Technology",
+            collegeName: s.collegeName || "GITAMW Tech Node",
             dept: s.dept,
             year: s.year,
             section: s.section,

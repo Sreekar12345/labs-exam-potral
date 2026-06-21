@@ -191,7 +191,7 @@ export default function StudentDashboard() {
           <div>
             <h1 className="font-extrabold text-sm tracking-tight text-slate-900 uppercase">ExamCoder Student Portal</h1>
             <p className="text-slate-400 text-[10px] font-medium uppercase tracking-wider font-sans">
-              {studentData.collegeName || "LAB EXAM"} • Secure Sandbox Session
+              {studentData.collegeName || "GITAMW Tech Node"} • Secure Sandbox Session
             </p>
           </div>
         </div>
