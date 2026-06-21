@@ -657,6 +657,16 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     setConsoleTab("output");
     setConsoleOutput("Running code through secure institutional test harness...\nEvaluating inputs...");
 
+    // Save submitted code to localStorage
+    const studentProfile = loadStudentProfile();
+    const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+    if (typeof window !== "undefined" && window.localStorage) {
+      window.localStorage.setItem(
+        `examcoder_code_${studentRoll}_${assessmentId}_${currentQuestion.id}`,
+        codeContent[currentQuestion.id] || ""
+      );
+    }
+
     setTimeout(() => {
       setQuestionStates(prev => ({
         ...prev,
@@ -668,7 +678,19 @@ export default function StudentExamWorkspace({ params }: PageProps) {
 
   const triggerAutoSubmit = (reason: string) => {
     setConsoleOutput(current => current + `\n[CRITICAL LOCKDOWN] Exam Auto-submission triggered. Reason: ${reason}`);
-    // Simulated submit code
+    
+    // Save all code content to localStorage on auto-submit
+    const studentProfile = loadStudentProfile();
+    const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+    if (typeof window !== "undefined" && window.localStorage) {
+      questions.forEach(q => {
+        window.localStorage.setItem(
+          `examcoder_code_${studentRoll}_${assessmentId}_${q.id}`,
+          codeContent[q.id] || ""
+        );
+      });
+    }
+
     setQuestionStates(prev => {
       const next = { ...prev };
       Object.keys(next).forEach(key => {

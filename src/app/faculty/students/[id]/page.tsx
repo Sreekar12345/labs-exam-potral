@@ -108,12 +108,12 @@ export default function StudentProfile({ params }: PageProps) {
           <h2 className="text-sm font-bold text-slate-900 tracking-tight">Student Academic File</h2>
         </div>
 
-        <button 
-          onClick={() => alert(`Simulation: Exporting scorecard dossier pdf for Roll ${studentData.roll}.`)}
+        <Link 
+          href={`/faculty/reports/student-scorecard/${studentData.roll}/5`}
           className="bg-navy-900 hover:bg-navy-950 text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring"
         >
           <Download className="w-3.5 h-3.5" /> Export Scorecard Dossier
-        </button>
+        </Link>
       </header>
 
       {/* Main content grid */}
@@ -250,6 +250,7 @@ export default function StudentProfile({ params }: PageProps) {
                       <th className="py-3 px-4">Completion Time</th>
                       <th className="py-3 px-4 text-center">Outcome</th>
                       <th className="py-3 px-4 text-right">Score Earned</th>
+                      <th className="py-3 px-4 text-right">Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-150">
@@ -268,6 +269,14 @@ export default function StudentProfile({ params }: PageProps) {
                           </span>
                         </td>
                         <td className="py-3 px-4 text-right font-mono font-bold text-slate-900">{ex.score}</td>
+                        <td className="py-3 px-4 text-right">
+                          <Link 
+                            href={`/faculty/reports/student-scorecard/${studentData.roll}/${ex.id}`}
+                            className="text-blue-600 hover:text-blue-800 font-bold hover:underline"
+                          >
+                            Scorecard
+                          </Link>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
