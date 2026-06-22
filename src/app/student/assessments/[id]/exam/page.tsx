@@ -16,10 +16,12 @@ import {
   ChevronRight,
   ShieldAlert,
   ShieldCheck,
-  ArrowLeft
+  ArrowLeft,
+  Lock,
+  CheckCircle
 } from "lucide-react";
 
-import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents } from "@/lib/storage";
+import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents, loadExamSessions, getAssessmentStatus } from "@/lib/storage";
 
 interface PageProps {
   params: Promise<{ id: string }>;
@@ -85,6 +87,9 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     totalMarks: 50
   });
 
+  const [assessmentStatus, setAssessmentStatus] = useState<"Active" | "Upcoming" | "Completed">("Active");
+  const [scheduledDateStr, setScheduledDateStr] = useState("");
+
   // List of active questions
   const [examQuestions, setExamQuestions] = useState<MockQuestion[]>([PLACEHOLDER_QUESTION]);
   const [selectedQuestion, setSelectedQuestion] = useState<MockQuestion>(PLACEHOLDER_QUESTION);
@@ -123,6 +128,13 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         duration: found.duration,
         totalMarks: found.questionsCount * 15
       });
+
+      setScheduledDateStr(found.date);
+      const profile = loadStudentProfile();
+      const studentRoll = profile.roll || "DEMO_STUDENT";
+      const sessions = loadExamSessions();
+      const currentStatus = getAssessmentStatus(found, studentRoll, sessions);
+      setAssessmentStatus(currentStatus);
 
       const hr = Math.floor(found.duration / 60);
       const min = found.duration % 60;
@@ -311,6 +323,79 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     alert("Practical lab assessment submitted successfully! Your code has been registered on the grader database.");
     router.push("/student/dashboard");
   };
+
+  if (assessmentStatus === "Completed") {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center space-y-6 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-extrabold text-white">Assessment Completed / Expired</h3>
+            <p className="text-slate-400 font-medium leading-relaxed text-xs">
+              This examination is completed or has expired. You are only permitted to write this assessment during its scheduled window.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+            <div className="flex justify-between">
+              <span>Assessment ID:</span>
+              <span className="font-bold text-white">{examData.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Status:</span>
+              <span className="font-bold text-rose-500 uppercase">Completed</span>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/student/dashboard")}
+            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider"
+          >
+            Exit Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (assessmentStatus === "Upcoming") {
+    return (
+      <div className="min-h-screen bg-slate-900 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center space-y-6 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-extrabold text-white">Assessment Environment Locked</h3>
+            <p className="text-slate-400 font-medium leading-relaxed text-xs">
+              This examination is scheduled for <span className="font-bold text-white">{scheduledDateStr || "a different date"}</span>. 
+              You can only write this assessment during its scheduled time.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+            <div className="flex justify-between">
+              <span>Scheduled Date:</span>
+              <span className="font-bold text-white">{scheduledDateStr}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Today's Date:</span>
+              <span className="font-bold text-white">{new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Security Access:</span>
+              <span className="font-bold text-rose-500 uppercase">Blocked</span>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/student/dashboard")}
+            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider"
+          >
+            Exit Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-slate-900 text-slate-100 flex flex-col font-mono text-xs select-none">

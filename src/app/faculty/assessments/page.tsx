@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, saveAssessments } from "@/lib/storage";
+import { loadAssessments, saveAssessments, getAssessmentStatus } from "@/lib/storage";
 import { 
   BookOpen, 
   Plus, 
@@ -79,7 +79,23 @@ export default function AssessmentsDashboard() {
   };
 
   // Filter application
-  const filteredAssessments = assessments.filter(a => {
+  const filteredAssessments = assessments.map(a => {
+    const comp = getAssessmentStatus(a, "", []);
+    let displayStatus = a.status;
+    if (a.status !== "Draft" && a.status !== "Archived") {
+      if (comp === "Active") {
+        displayStatus = "Active";
+      } else if (comp === "Completed") {
+        displayStatus = "Completed";
+      } else {
+        displayStatus = "Scheduled";
+      }
+    }
+    return {
+      ...a,
+      status: displayStatus
+    };
+  }).filter(a => {
     const matchSearch = a.name.toLowerCase().includes(searchQuery.toLowerCase()) || a.subject.toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = filterStatus === "all" || a.status.toLowerCase() === filterStatus.toLowerCase();
     return matchSearch && matchStatus;

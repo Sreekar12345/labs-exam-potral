@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents, loadExamSessions, saveExamSessions } from "@/lib/storage";
+import { loadAssessments, loadQuestions, loadStudentProfile, loadStudents, saveStudents, loadExamSessions, saveExamSessions, getAssessmentStatus } from "@/lib/storage";
 import { 
   Play, 
   Send, 
@@ -172,6 +172,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
 
   const [isScheduledDate, setIsScheduledDate] = useState(true);
   const [scheduledDateStr, setScheduledDateStr] = useState("");
+  const [assessmentStatus, setAssessmentStatus] = useState<"Active" | "Upcoming" | "Completed">("Active");
 
   // Screen layout size variables
   const [highContrast, setHighContrast] = useState(false);
@@ -236,7 +237,6 @@ export default function StudentExamWorkspace({ params }: PageProps) {
 
     if (foundAssessment) {
       setScheduledDateStr(foundAssessment.date);
-      setIsScheduledDate(isSameDate(foundAssessment.date));
 
       // Resolve the student profile
       const studentProfile = loadStudentProfile();
@@ -257,6 +257,10 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       // Check if session exists for this student and this assessment to retrieve assigned subset
       const sessions = loadExamSessions();
       const existingSession = sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === assessmentId);
+
+      const currentStatus = getAssessmentStatus(foundAssessment, studentRoll, sessions);
+      setAssessmentStatus(currentStatus);
+      setIsScheduledDate(currentStatus === "Active");
 
       let assignedQuestions: any[] = [];
       if (existingSession) {
@@ -712,9 +716,43 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     router.push("/student/dashboard");
   };
 
-  if (!isScheduledDate) {
+  if (assessmentStatus === "Completed") {
     return (
-      <div className="min-h-screen bg-slate-950 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
+      <div className="min-h-screen bg-slate-955 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
+        <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center space-y-6 shadow-xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500">
+            <Lock className="w-6 h-6" />
+          </div>
+          <div className="space-y-2">
+            <h3 className="text-sm font-extrabold text-white">Assessment Completed / Expired</h3>
+            <p className="text-slate-400 font-medium leading-relaxed text-xs">
+              This examination is completed or has expired. You are only permitted to write this assessment during its scheduled window.
+            </p>
+          </div>
+          <div className="bg-slate-950 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+            <div className="flex justify-between">
+              <span>Assessment ID:</span>
+              <span className="font-bold text-white">{examData.id}</span>
+            </div>
+            <div className="flex justify-between">
+              <span>Status:</span>
+              <span className="font-bold text-rose-500 uppercase">Completed</span>
+            </div>
+          </div>
+          <button
+            onClick={() => router.push("/student/dashboard")}
+            className="w-full bg-rose-600 hover:bg-rose-700 text-white font-extrabold py-3 rounded-md transition-all text-xs uppercase tracking-wider"
+          >
+            Exit Workspace
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (assessmentStatus === "Upcoming") {
+    return (
+      <div className="min-h-screen bg-slate-955 flex flex-col justify-center items-center font-sans select-none text-slate-200 p-6">
         <div className="bg-slate-900 border border-slate-800 rounded-lg p-8 max-w-md w-full text-center space-y-6 shadow-xl">
           <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto text-rose-500">
             <Lock className="w-6 h-6" />
@@ -726,7 +764,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
               You can only write this assessment during its scheduled time.
             </p>
           </div>
-          <div className="bg-slate-950 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
+          <div className="bg-slate-955 p-4 border border-slate-800 rounded-lg text-slate-400 leading-relaxed text-[11px] text-left space-y-2 font-mono">
             <div className="flex justify-between">
               <span>Scheduled Date:</span>
               <span className="font-bold text-white">{scheduledDateStr}</span>

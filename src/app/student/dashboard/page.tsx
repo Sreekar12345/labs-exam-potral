@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadStudentProfile, loadAssessments, loadExamSessions } from "@/lib/storage";
+import { loadStudentProfile, loadAssessments, loadExamSessions, getAssessmentStatus } from "@/lib/storage";
 import { 
   BookOpen, 
   Clock, 
@@ -123,20 +123,7 @@ export default function StudentDashboard() {
     
     const loadedAsms = loadAssessments();
     const mapped: MockExam[] = loadedAsms.map(a => {
-      let status: "Active" | "Upcoming" | "Completed" = "Upcoming";
-      if (a.status === "Active") status = "Active";
-      else if (a.status === "Completed") status = "Completed";
-      
-      // Override status to Upcoming if today is not the scheduled date of the exam
-      if (status === "Active" && !isSameDate(a.date)) {
-        status = "Upcoming";
-      }
-
-      // Override status to Completed if student has already submitted a session for this exam
-      const hasSubmitted = sessions.some(s => s.studentRoll === studentRoll && s.assessmentId === a.id && s.submittedAt !== null);
-      if (hasSubmitted) {
-        status = "Completed";
-      }
+      const status = getAssessmentStatus(a, studentRoll, sessions);
       
       return {
         id: a.id,

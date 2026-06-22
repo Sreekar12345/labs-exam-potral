@@ -41,6 +41,7 @@ import {
   saveQuestions, 
   resetPlatformData, 
   loadFacultyProfile,
+  getAssessmentStatus,
   FacultyProfile
 } from "@/lib/storage";
 
@@ -488,15 +489,19 @@ export default function FacultyDashboard() {
 
   // Load from local storage inside mount effect
   useEffect(() => {
-    const loadedAsms = loadAssessments().map(a => ({
-      id: a.id,
-      name: a.name,
-      subject: a.subject,
-      duration: `${a.duration} mins`,
-      assignedCount: a.assignedCount,
-      status: a.status === "Active" ? "In Progress" as const : a.status === "Scheduled" ? "Scheduled" as const : "Completed" as const,
-      date: a.date
-    }));
+    const loadedAsms = loadAssessments().map(a => {
+      const comp = getAssessmentStatus(a, "", []);
+      const displayStatus = comp === "Active" ? "In Progress" as const : comp === "Completed" ? "Completed" as const : "Scheduled" as const;
+      return {
+        id: a.id,
+        name: a.name,
+        subject: a.subject,
+        duration: `${a.duration} mins`,
+        assignedCount: a.assignedCount,
+        status: displayStatus,
+        date: a.date
+      };
+    });
     setAssessments(loadedAsms);
     
     setStudents(loadStudents().map(s => ({
@@ -742,15 +747,19 @@ export default function FacultyDashboard() {
       resetPlatformData(false);
       
       // Reload states
-      setAssessments(loadAssessments().map(a => ({
-        id: a.id,
-        name: a.name,
-        subject: a.subject,
-        duration: `${a.duration} mins`,
-        assignedCount: a.assignedCount,
-        status: a.status === "Active" ? "In Progress" as const : a.status === "Scheduled" ? "Scheduled" as const : "Completed" as const,
-        date: a.date
-      })));
+      setAssessments(loadAssessments().map(a => {
+        const comp = getAssessmentStatus(a, "", []);
+        const displayStatus = comp === "Active" ? "In Progress" as const : comp === "Completed" ? "Completed" as const : "Scheduled" as const;
+        return {
+          id: a.id,
+          name: a.name,
+          subject: a.subject,
+          duration: `${a.duration} mins`,
+          assignedCount: a.assignedCount,
+          status: displayStatus,
+          date: a.date
+        };
+      }));
       setStudents(loadStudents().map(s => ({
         id: s.id,
         roll: s.roll,

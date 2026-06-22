@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, saveAssessments } from "@/lib/storage";
+import { loadAssessments, saveAssessments, getAssessmentStatus } from "@/lib/storage";
 import { 
   ArrowLeft, 
   Search, 
@@ -45,11 +45,13 @@ export default function ActiveAssessmentsMonitoring() {
       let violationsCount = 0;
       let timeRemaining = "Starts in 16 hours";
       
-      if (asm.status === "Active") {
+      const comp = getAssessmentStatus(asm, "", []);
+      
+      if (comp === "Active") {
         activeCandidates = Math.max(0, asm.assignedCount - 8);
         violationsCount = 3;
         timeRemaining = "01:24:15";
-      } else if (asm.status === "Completed") {
+      } else if (comp === "Completed") {
         activeCandidates = 0;
         violationsCount = 8;
         timeRemaining = "Completed";
@@ -64,7 +66,7 @@ export default function ActiveAssessmentsMonitoring() {
         activeCandidates,
         violationsCount,
         timeRemaining,
-        status: asm.status === "Active" ? "Active" : asm.status === "Completed" ? "Completed" : "Scheduled",
+        status: comp === "Active" ? "Active" : comp === "Completed" ? "Completed" : "Scheduled",
         type: "Lab Examination"
       };
     });

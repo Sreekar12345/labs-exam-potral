@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, loadExamSessions, loadStudentProfile } from "@/lib/storage";
+import { loadAssessments, loadExamSessions, loadStudentProfile, getAssessmentStatus } from "@/lib/storage";
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -120,6 +120,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
   const [scheduledDateStr, setScheduledDateStr] = useState("");
   const [studentCollege, setStudentCollege] = useState("Gouthami Institute of Technology and Management for Women");
   const [hasAlreadySubmitted, setHasAlreadySubmitted] = useState(false);
+  const [assessmentStatus, setAssessmentStatus] = useState<"Active" | "Upcoming" | "Completed">("Active");
 
   useEffect(() => {
     const assessments = loadAssessments();
@@ -159,7 +160,9 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
         status: found.status === "Active" ? "Active" : "Upcoming"
       });
       setScheduledDateStr(found.date);
-      setIsScheduledDate(isSameDate(found.date));
+      const currentStatus = getAssessmentStatus(found, studentRoll, sessions);
+      setAssessmentStatus(currentStatus);
+      setIsScheduledDate(currentStatus === "Active");
       setHasAlreadySubmitted(existingSession ? existingSession.submittedAt !== null : false);
     }
   }, [id]);
@@ -252,7 +255,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
     router.push(`/student/exam/${examData.id}`);
   };
 
-  if (hasAlreadySubmitted) {
+  if (hasAlreadySubmitted || assessmentStatus === "Completed") {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30 font-sans text-xs">
@@ -270,7 +273,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
             </div>
           </div>
           <div className="bg-emerald-50 border border-emerald-250 px-3 py-1 rounded text-emerald-700 font-mono font-bold text-[10px] uppercase">
-            Submitted
+            Completed
           </div>
         </header>
 
@@ -281,9 +284,11 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
             </div>
 
             <div className="space-y-2">
-              <h3 className="text-sm font-extrabold text-slate-950">Assessment Completed</h3>
+              <h3 className="text-sm font-extrabold text-slate-950">Assessment Completed / Expired</h3>
               <p className="text-slate-500 font-medium leading-relaxed text-xs">
-                You have already successfully submitted this examination. Re-entry into the secure sandbox workstation is restricted.
+                {hasAlreadySubmitted 
+                  ? "You have already successfully submitted this examination. Re-entry into the secure sandbox workstation is restricted." 
+                  : "This examination is completed or has expired. You are only permitted to write this assessment during its scheduled window."}
               </p>
             </div>
 
@@ -314,7 +319,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
     );
   }
 
-  if (!isScheduledDate) {
+  if (assessmentStatus === "Upcoming") {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans select-none text-xs text-slate-800">
         <header className="bg-white border-b border-slate-200 px-6 py-4 flex items-center justify-between sticky top-0 z-30 font-sans text-xs">

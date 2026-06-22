@@ -350,3 +350,167 @@ export function resetPlatformData(toEmpty: boolean = false): void {
     localStorage.setItem("examcoder_exam_sessions", JSON.stringify([]));
   }
 }
+
+export function getAssessmentStatus(
+  a: { date: string; duration: number; status: string; id: string },
+  studentRoll: string,
+  sessions: { studentRoll: string; assessmentId: string; submittedAt: string | null }[]
+): "Active" | "Upcoming" | "Completed" {
+  // First, check if student has already submitted a session for this exam
+  const safeSessions = sessions || [];
+  const hasSubmitted = safeSessions.some(
+    s => s.studentRoll === studentRoll && s.assessmentId === a.id && s.submittedAt !== null
+  );
+  if (hasSubmitted) {
+    return "Completed";
+  }
+
+  // Parse the scheduled date
+  const scheduledDateStr = a.date;
+  if (!scheduledDateStr) {
+    // Fallback if no date is provided
+    if (a.status === "Active") return "Active";
+    if (a.status === "Completed") return "Completed";
+    return "Upcoming";
+  }
+
+  const now = new Date();
+  const cleanStr = scheduledDateStr.trim().toLowerCase();
+
+  let hasTime = false;
+  if (cleanStr.includes("t") || cleanStr.includes(":") || cleanStr.includes("am") || cleanStr.includes("pm") || cleanStr.includes("a.m") || cleanStr.includes("p.m")) {
+    hasTime = true;
+  }
+
+  let scheduledStart: Date | null = null;
+
+  // Try parsing ISO format YYYY-MM-DDTHH:mm
+  if (cleanStr.includes("t")) {
+    const parsedDate = new Date(scheduledDateStr);
+    if (!isNaN(parsedDate.getTime())) {
+      scheduledStart = parsedDate;
+    }
+  }
+
+  // Handle DD/MM/YYYY format which may include time like "22/06/2026 10:A.M"
+  if (!scheduledStart && cleanStr.includes("/")) {
+    const parts = cleanStr.split(/\s+/);
+    const dateParts = parts[0].split("/");
+    if (dateParts.length === 3) {
+      const day = parseInt(dateParts[0], 10);
+      const month = parseInt(dateParts[1], 10) - 1;
+      const year = parseInt(dateParts[2], 10);
+      
+      let hours = 0;
+      let minutes = 0;
+      
+      if (parts[1]) {
+        const timeStr = parts.slice(1).join(" ");
+        const isPM = timeStr.includes("p.m") || timeStr.includes("pm") || timeStr.includes("p");
+        const isAM = timeStr.includes("a.m") || timeStr.includes("am") || timeStr.includes("a");
+        const timeMatch = timeStr.match(/(\d+)(?::(\d+))?/);
+        if (timeMatch) {
+          hours = parseInt(timeMatch[1], 10);
+          if (timeMatch[2]) {
+            minutes = parseInt(timeMatch[2], 10);
+          }
+          if (isPM && hours < 12) hours += 12;
+          if (isAM && hours === 12) hours = 0;
+        }
+      }
+      
+      const parsedDate = new Date(year, month, day, hours, minutes, 0, 0);
+      if (!isNaN(parsedDate.getTime())) {
+        scheduledStart = parsedDate;
+      }
+    }
+  }
+
+  // Handle Month DD, YYYY format which may include time (e.g. "June 21, 2026, 10:30 PM" or "June 21, 2026")
+  if (!scheduledStart) {
+    const monthRegex = /^(january|february|march|april|may|june|july|august|september|october|november|december|jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)\s+(\d+),?\s+(\d{4})(?:,?\s+(\d+)(?::(\d+))?\s*(am|pm|a\.m\.|p\.m\.))?/i;
+    const match = cleanStr.match(monthRegex);
+    if (match) {
+      const monthStr = match[1].substring(0, 3);
+      const day = parseInt(match[2], 10);
+      const year = parseInt(match[3], 10);
+      
+      const months = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+      const monthIndex = months.indexOf(monthStr);
+      
+      if (monthIndex !== -1) {
+        let hours = 0;
+        let minutes = 0;
+        if (match[4]) {
+          hours = parseInt(match[4], 10);
+          if (match[5]) {
+            minutes = parseInt(match[5], 10);
+          }
+          const amampm = match[6].replace(/\./g, "").toLowerCase();
+          if (amampm === "pm" && hours < 12) hours += 12;
+          if (amampm === "am" && hours === 12) hours = 0;
+        }
+        const parsedDate = new Date(year, monthIndex, day, hours, minutes, 0, 0);
+        if (!isNaN(parsedDate.getTime())) {
+          scheduledStart = parsedDate;
+        }
+      }
+    }
+  }
+
+  // Fallback to standard JS Date parsing
+  if (!scheduledStart) {
+    const cleanStandard = scheduledDateStr
+      .replace(/a\.m\./gi, "AM")
+      .replace(/p\.m\./gi, "PM")
+      .replace(/a\.m/gi, "AM")
+      .replace(/p\.m/gi, "PM");
+    const parsedDate = new Date(cleanStandard);
+    if (!isNaN(parsedDate.getTime())) {
+      scheduledStart = parsedDate;
+    }
+  }
+
+  if (!scheduledStart) {
+    // If not parseable, fallback
+    if (a.status === "Active") return "Active";
+    if (a.status === "Completed") return "Completed";
+    return "Upcoming";
+  }
+
+  const nowMs = now.getTime();
+  const startMs = scheduledStart.getTime();
+
+  if (hasTime) {
+    // If there is a time component, the window is [startMs, startMs + duration_ms]
+    const endMs = startMs + (a.duration * 60 * 1000);
+    if (nowMs < startMs) {
+      return "Upcoming";
+    } else if (nowMs >= startMs && nowMs <= endMs) {
+      return "Active";
+    } else {
+      return "Completed";
+    }
+  } else {
+    // If there is NO time component, the window is the entire calendar day (local time)
+    // Start of day: 00:00:00
+    const startOfDay = new Date(scheduledStart);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    // End of day: 23:59:59.999
+    const endOfDay = new Date(scheduledStart);
+    endOfDay.setHours(23, 59, 59, 999);
+
+    const startOfDayMs = startOfDay.getTime();
+    const endOfDayMs = endOfDay.getTime();
+
+    if (nowMs < startOfDayMs) {
+      return "Upcoming";
+    } else if (nowMs >= startOfDayMs && nowMs <= endOfDayMs) {
+      return "Active";
+    } else {
+      return "Completed";
+    }
+  }
+}
+
