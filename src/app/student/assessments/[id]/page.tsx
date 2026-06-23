@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, loadExamSessions, loadStudentProfile, getAssessmentStatus } from "@/lib/storage";
+import { loadAssessments, loadExamSessions, loadStudentProfile, getAssessmentStatus, StudentProfile } from "@/lib/storage";
 import { 
   ArrowLeft, 
   ArrowRight,
@@ -122,6 +122,12 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
   const [hasAlreadySubmitted, setHasAlreadySubmitted] = useState(false);
   const [assessmentStatus, setAssessmentStatus] = useState<"Active" | "Upcoming" | "Completed">("Active");
 
+  // Dynamic Telemetry States
+  const [studentRoll, setStudentRoll] = useState("22CSE102");
+  const [studentIp, setStudentIp] = useState("192.168.12.104");
+  const [workstationNode, setWorkstationNode] = useState("PSG-LAN-NODE-104");
+  const [fullscreenHash, setFullscreenHash] = useState("VERIFIED");
+
   useEffect(() => {
     const assessments = loadAssessments();
     const found = assessments.find(a => a.id === id);
@@ -142,9 +148,35 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
       if (studentProfile.collegeName) {
         setStudentCollege(studentProfile.collegeName);
       }
-      const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+      const activeRoll = studentProfile.roll || "22CSE102";
+      setStudentRoll(activeRoll);
+
+      let activeIp = studentProfile.ip || "192.168.12.104";
+      const rollMatch = activeRoll.match(/\d+$/);
+      if (rollMatch && activeIp === "192.168.12.104") {
+        activeIp = `192.168.12.${rollMatch[0]}`;
+      }
+      setStudentIp(activeIp);
+
+      const collegePrefix = studentProfile.collegeName?.toLowerCase().includes("gouthami") || studentProfile.collegeName?.toLowerCase().includes("gowthami")
+        ? "GITMW"
+        : "PSG";
+      const nodeNum = rollMatch ? rollMatch[0] : "104";
+      setWorkstationNode(`${collegePrefix}-LAN-NODE-${nodeNum}`);
+
+      // Generate a realistic fullscreen hash dynamically
+      const screenDetails = typeof window !== "undefined" ? `${window.screen.width}x${window.screen.height}` : "1920x1080";
+      const hashInput = `${activeRoll}-${activeIp}-${screenDetails}`;
+      let hash = 0;
+      for (let i = 0; i < hashInput.length; i++) {
+        hash = (hash << 5) - hash + hashInput.charCodeAt(i);
+        hash |= 0;
+      }
+      const hexHash = Math.abs(hash).toString(16).toUpperCase().substring(0, 8);
+      setFullscreenHash(`SHA256-${hexHash}`);
+
       const sessions = loadExamSessions();
-      const existingSession = sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === id);
+      const existingSession = sessions.find(s => s.studentRoll === activeRoll && s.assessmentId === id);
 
       const displayQuestionsCount = existingSession
         ? JSON.parse(existingSession.questionOrder).length
@@ -160,7 +192,7 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
         status: found.status === "Active" ? "Active" : "Upcoming"
       });
       setScheduledDateStr(found.date);
-      const currentStatus = getAssessmentStatus(found, studentRoll, sessions);
+      const currentStatus = getAssessmentStatus(found, activeRoll, sessions);
       setAssessmentStatus(currentStatus);
       setIsScheduledDate(currentStatus === "Active");
       setHasAlreadySubmitted(existingSession ? existingSession.submittedAt !== null : false);
@@ -680,18 +712,38 @@ export default function AssessmentLaunchPad({ params }: PageProps) {
                 <p className="text-slate-500 font-medium">All hardware, browser, and network checks passed successfully.</p>
               </div>
 
-              <div className="bg-slate-50 p-4 border border-slate-200 rounded-lg text-slate-650 leading-relaxed text-[11px] text-left space-y-2 font-mono">
-                <div className="flex justify-between">
-                  <span>Client IP:</span>
-                  <span className="font-bold text-slate-900">PSG-LAN-NODE-104</span>
+              <div className="bg-slate-900/5 border border-slate-200/80 rounded-xl p-5 text-slate-700 text-xs text-left space-y-3 shadow-inner">
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <Laptop className="w-3.5 h-3.5 text-slate-500" />
+                    <span className="font-semibold text-slate-500">Client Host & IP</span>
+                  </div>
+                  <div className="text-right">
+                    <span className="font-mono font-bold text-slate-800 block text-[11px]">{workstationNode}</span>
+                    <span className="font-mono text-[10px] text-slate-500 block">{studentIp}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Fullscreen Hash:</span>
-                  <span className="font-bold text-slate-900">VERIFIED [OK]</span>
+                
+                <div className="flex justify-between items-center py-1.5 border-b border-slate-100">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="font-semibold text-slate-500">Lockdown Diagnostics</span>
+                  </div>
+                  <div className="text-right flex items-center gap-1.5 font-mono text-[11px]">
+                    <span className="font-bold text-emerald-700 bg-emerald-50 border border-emerald-200/60 px-1.5 py-0.5 rounded-sm">
+                      {fullscreenHash} (OK)
+                    </span>
+                  </div>
                 </div>
-                <div className="flex justify-between">
-                  <span>Authorized Session:</span>
-                  <span className="font-bold text-slate-900">Roll 22CSE102</span>
+
+                <div className="flex justify-between items-center py-1.5">
+                  <div className="flex items-center gap-2">
+                    <UserCheck className="w-3.5 h-3.5 text-navy-600" />
+                    <span className="font-semibold text-slate-500">Authorized Candidate</span>
+                  </div>
+                  <span className="font-mono font-bold text-slate-850 text-[11px] bg-slate-100 px-2 py-0.5 rounded-sm border border-slate-200">
+                    Roll {studentRoll}
+                  </span>
                 </div>
               </div>
 

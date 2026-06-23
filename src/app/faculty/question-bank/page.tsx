@@ -756,7 +756,28 @@ export default function QuestionBank() {
                     <table className="w-full text-left border-collapse text-xs">
                       <thead>
                         <tr className="bg-slate-50 text-slate-500 font-bold uppercase text-[10px] border-b border-slate-200">
-                          {addingToAssessment && <th className="py-3 px-4 w-12 text-center">Select</th>}
+                          {addingToAssessment && (
+                            <th className="py-3 px-4 w-20 text-center select-none">
+                              <div className="flex items-center justify-center gap-1.5">
+                                <input 
+                                  type="checkbox"
+                                  id="select-all-checkbox"
+                                  checked={filteredQuestions.length > 0 && filteredQuestions.every(q => selectedQuestionIds.includes(q.id))}
+                                  onChange={(e) => {
+                                    if (e.target.checked) {
+                                      const allIds = filteredQuestions.map(q => q.id);
+                                      setSelectedQuestionIds(prev => Array.from(new Set([...prev, ...allIds])));
+                                    } else {
+                                      const filteredIds = filteredQuestions.map(q => q.id);
+                                      setSelectedQuestionIds(prev => prev.filter(id => !filteredIds.includes(id)));
+                                    }
+                                  }}
+                                  className="rounded border-slate-350 text-navy-900 w-3.5 h-3.5 cursor-pointer"
+                                />
+                                <label htmlFor="select-all-checkbox" className="cursor-pointer font-bold text-slate-500 uppercase text-[10px]">Select</label>
+                              </div>
+                            </th>
+                          )}
                           <th className="py-3 px-4">Question Title</th>
                           <th className="py-3 px-4">Language</th>
                           <th className="py-3 px-4">Topic</th>

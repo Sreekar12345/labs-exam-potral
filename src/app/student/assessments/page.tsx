@@ -125,7 +125,25 @@ export default function StudentAssessmentsList() {
         assignedDate: a.createdDate,
         status: finalStatus,
         scheduledTime: finalStatus === "Upcoming" ? a.date : undefined,
-        completionDate: finalStatus === "Completed" ? (sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === a.id)?.submittedAt || a.date) : undefined,
+        completionDate: finalStatus === "Completed" ? (() => {
+          const sub = sessions.find(s => s.studentRoll === studentRoll && s.assessmentId === a.id)?.submittedAt;
+          if (sub) {
+            const dateObj = new Date(sub);
+            if (!isNaN(dateObj.getTime())) {
+              const day = dateObj.getDate();
+              const month = dateObj.getMonth() + 1;
+              const year = dateObj.getFullYear();
+              let hours = dateObj.getHours();
+              const minutes = String(dateObj.getMinutes()).padStart(2, "0");
+              const seconds = String(dateObj.getSeconds()).padStart(2, "0");
+              const ampm = hours >= 12 ? "pm" : "am";
+              hours = hours % 12;
+              hours = hours ? hours : 12;
+              return `${day}/${month}/${year}, ${hours}:${minutes}:${seconds} ${ampm}`;
+            }
+          }
+          return a.date;
+        })() : undefined,
         marks: a.questionsCount * 15
       };
     });

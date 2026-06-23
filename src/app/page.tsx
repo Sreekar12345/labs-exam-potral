@@ -70,12 +70,6 @@ export default function Home() {
               >
                 Faculty Portal
               </a>
-              <button 
-                onClick={openDemoModal}
-                className="w-full sm:w-auto bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs px-5 py-3 rounded-md transition-all focus-ring text-center"
-              >
-                Request Demo
-              </button>
             </div>
             <div className="pt-8 border-t border-slate-200/60 grid grid-cols-3 gap-8 text-center max-w-2xl mx-auto">
               <div>
@@ -837,16 +831,10 @@ export default function Home() {
               Streamline assessments, improve evaluation accuracy, and gain actionable performance insights. Set up a secure, department-wide trial sandbox node today.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-3 justify-center pt-4 max-w-md mx-auto">
+            <div className="flex justify-center pt-4 max-w-xs mx-auto w-full">
               <button 
                 onClick={openDemoModal}
-                className="bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs px-6 py-3 rounded-md transition-all shadow-xs focus-ring text-center flex-1"
-              >
-                Request Demo
-              </button>
-              <button 
-                onClick={openDemoModal}
-                className="bg-transparent hover:bg-white/10 border border-white/20 text-white font-bold text-xs px-6 py-3 rounded-md transition-all focus-ring text-center flex-1"
+                className="w-full bg-white hover:bg-slate-100 text-slate-950 font-bold text-xs px-6 py-3 rounded-md transition-all shadow-xs focus-ring text-center"
               >
                 Contact Sales
               </button>

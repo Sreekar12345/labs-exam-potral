@@ -95,6 +95,7 @@ export interface ReportLog {
   generatedBy: string;
   exportType: "PDF" | "CSV" | "Excel";
   downloadCount: number;
+  assessmentId?: string;
 }
 
 // Default Seed Data (used as static fallback before db sync completes)
@@ -139,6 +140,38 @@ export function triggerDbSync() {
   if (!isClient() || hasSynced) return;
   hasSynced = true;
 
+  const areListsEqual = (listAStr: string | null, listB: any[] | undefined): boolean => {
+    if (!listB) return true;
+    if (!listAStr) return false;
+    try {
+      const listA = JSON.parse(listAStr);
+      if (!Array.isArray(listA) || listA.length !== listB.length) return false;
+      
+      const normalize = (list: any[]) => {
+        return list.map(item => {
+          const normalizedObj: any = {};
+          Object.keys(item).sort().forEach(k => {
+            if (item[k] !== undefined && item[k] !== null) {
+              if (typeof item[k] === 'object') {
+                normalizedObj[k] = JSON.stringify(item[k]);
+              } else {
+                normalizedObj[k] = item[k];
+              }
+            }
+          });
+          return normalizedObj;
+        }).sort((a, b) => {
+          const idA = String(a.id || a.roll || '');
+          const idB = String(b.id || b.roll || '');
+          return idA.localeCompare(idB);
+        });
+      };
+
+      return JSON.stringify(normalize(listA)) === JSON.stringify(normalize(listB));
+    } catch (e) {
+      return false;
+    }
+  };
 
   fetch("/api/sync")
     .then((res) => res.json())
@@ -147,27 +180,27 @@ export function triggerDbSync() {
         let hasChanges = false;
         
         const prevStudents = localStorage.getItem(KEYS.STUDENTS);
-        if (data.students && JSON.stringify(data.students) !== prevStudents) {
+        if (data.students && !areListsEqual(prevStudents, data.students)) {
           localStorage.setItem(KEYS.STUDENTS, JSON.stringify(data.students));
           hasChanges = true;
         }
         const prevAssessments = localStorage.getItem(KEYS.ASSESSMENTS);
-        if (data.assessments && JSON.stringify(data.assessments) !== prevAssessments) {
+        if (data.assessments && !areListsEqual(prevAssessments, data.assessments)) {
           localStorage.setItem(KEYS.ASSESSMENTS, JSON.stringify(data.assessments));
           hasChanges = true;
         }
         const prevQuestions = localStorage.getItem(KEYS.QUESTIONS);
-        if (data.questions && JSON.stringify(data.questions) !== prevQuestions) {
+        if (data.questions && !areListsEqual(prevQuestions, data.questions)) {
           localStorage.setItem(KEYS.QUESTIONS, JSON.stringify(data.questions));
           hasChanges = true;
         }
         const prevReports = localStorage.getItem("examcoder_reports");
-        if (data.reports && JSON.stringify(data.reports) !== prevReports) {
+        if (data.reports && !areListsEqual(prevReports, data.reports)) {
           localStorage.setItem("examcoder_reports", JSON.stringify(data.reports));
           hasChanges = true;
         }
         const prevSessions = localStorage.getItem("examcoder_exam_sessions");
-        if (data.examSessions && JSON.stringify(data.examSessions) !== prevSessions) {
+        if (data.examSessions && !areListsEqual(prevSessions, data.examSessions)) {
           localStorage.setItem("examcoder_exam_sessions", JSON.stringify(data.examSessions));
           hasChanges = true;
         }

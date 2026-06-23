@@ -306,7 +306,9 @@ export default function ReportDetailsPage({ params }: PageProps) {
   // Dynamic primary assessment selection
   const { primaryAssessment, primaryAssessmentId } = React.useMemo(() => {
     let bestId = "1";
-    if (examSessions.length > 0) {
+    if (report?.assessmentId) {
+      bestId = report.assessmentId;
+    } else if (examSessions.length > 0) {
       const counts: Record<string, number> = {};
       examSessions.forEach(s => {
         counts[s.assessmentId] = (counts[s.assessmentId] || 0) + 1;
@@ -778,7 +780,8 @@ export default function ReportDetailsPage({ params }: PageProps) {
           <div className="w-full max-w-[800px] space-y-8">
             {studentsWithScores.map((studentItem, idx) => {
               // 1. Resolve exam session questions
-              const session = examSessions.find(es => es.studentRoll === studentItem.roll && es.assessmentId === (assessments[0]?.id || "1"));
+              const primaryAssessmentId = primaryAssessment?.id || "1";
+              const session = examSessions.find(es => es.studentRoll === studentItem.roll && es.assessmentId === primaryAssessmentId);
               let questionIds: string[] = [];
               try {
                 questionIds = session ? JSON.parse(session.questionOrder) : ["15", "21", "9", "8", "18"];
@@ -800,7 +803,6 @@ export default function ReportDetailsPage({ params }: PageProps) {
 
               // 2. Calculate student outcomes and metrics in a single pass
               const isSuspended = studentItem.status === "Suspended";
-              const primaryAssessmentId = assessments[0]?.id || "1";
 
               // Check if the student has actual attempts in localStorage
               let hasActualSubmissions = false;
@@ -904,7 +906,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
                   let submittedCode = "";
                   if (attemptedStatus === "Yes") {
                     const key = `examcoder_code_${studentItem.roll}_${primaryAssessmentId}_${q.id}`;
-submittedCode = (typeof window !== "undefined" && window.localStorage.getItem(key)) || getCodeLogic(q.id || "", q.title || "");
+                    submittedCode = (typeof window !== "undefined" && window.localStorage.getItem(key)) || getCodeLogic(q.id || "", q.title || "");
                   }
 
                   return { id: q.id, title: q.title, attempted: attemptedStatus, result, marks: marksAllocated, submittedCode };
@@ -921,8 +923,8 @@ submittedCode = (typeof window !== "undefined" && window.localStorage.getItem(ke
                 const stableMinute = hash % 60;
                 const stableSecond = (hash * 7) % 60;
                 let examDate = new Date();
-                if (assessments[0]?.date) {
-                  const parsed = new Date(assessments[0].date);
+                if (primaryAssessment?.date) {
+                  const parsed = new Date(primaryAssessment.date);
                   if (!isNaN(parsed.getTime())) {
                     examDate = parsed;
                   }
@@ -970,7 +972,7 @@ submittedCode = (typeof window !== "undefined" && window.localStorage.getItem(ke
                         {faculty.collegeName || "Gouthami Institute of Technology and Management for Women"}
                       </h2>
                       <p className="text-[10px] text-slate-700 font-medium">
-                        {assessments[0]?.name || "Python Lab Assessment"} – Individual Report
+                        {primaryAssessment?.name || "Python Lab Assessment"} – Individual Report
                       </p>
                       <div className="h-[1px] bg-slate-200 w-full mt-3"></div>
                     </div>

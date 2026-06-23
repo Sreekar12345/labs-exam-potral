@@ -11,12 +11,10 @@ export default function Navigation({ onRequestDemo }: NavigationProps) {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isLoginDropdownOpen, setIsLoginDropdownOpen] = useState(false);
-  const [isRegisterDropdownOpen, setIsRegisterDropdownOpen] = useState(false);
 
   useEffect(() => {
     const handleOutsideClick = () => {
       setIsLoginDropdownOpen(false);
-      setIsRegisterDropdownOpen(false);
     };
     window.addEventListener("click", handleOutsideClick);
     return () => window.removeEventListener("click", handleOutsideClick);
@@ -127,41 +125,7 @@ export default function Navigation({ onRequestDemo }: NavigationProps) {
               )}
             </div>
 
-            {/* Sign Up Dropdown */}
-            <div className="relative">
-              <button 
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsRegisterDropdownOpen(!isRegisterDropdownOpen);
-                }}
-                className="text-navy-900 hover:text-navy-955 hover:bg-navy-50/50 border border-navy-200/60 font-sans text-xs font-bold px-3.5 py-2 rounded-md transition-all focus-ring text-center flex items-center gap-1.5"
-              >
-                Sign Up <ChevronDown className="w-3.5 h-3.5" />
-              </button>
-              {isRegisterDropdownOpen && (
-                <div className="absolute right-0 mt-2 w-48 bg-white border border-slate-200 rounded-md shadow-lg py-1.5 z-50 font-sans animate-in fade-in duration-100">
-                  <a 
-                    href="/student/register"
-                    className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-955 font-bold transition-colors"
-                  >
-                    <GraduationCap className="w-4 h-4 text-slate-500" /> Student Account
-                  </a>
-                  <a 
-                    href="/faculty/register"
-                    className="flex items-center gap-2 px-4 py-2 text-xs text-slate-700 hover:bg-slate-50 hover:text-slate-955 font-bold transition-colors"
-                  >
-                    <Users className="w-4 h-4 text-slate-500" /> Faculty Account
-                  </a>
-                </div>
-              )}
-            </div>
 
-            <button 
-              onClick={onRequestDemo}
-              className="bg-navy-900 hover:bg-navy-950 text-white font-sans text-xs font-bold px-4 py-2 rounded-md transition-all focus-ring shadow-2xs"
-            >
-              Request Demo
-            </button>
           </div>
 
           {/* Mobile Menu Button */}
@@ -238,7 +202,7 @@ export default function Navigation({ onRequestDemo }: NavigationProps) {
             </div>
           </div>
 
-          <div className="pt-2 border-t border-slate-100 flex items-center justify-between px-3">
+          <div className="pt-2 border-t border-slate-100 px-3">
             <a 
               href="#faq"
               onClick={() => setIsMobileMenuOpen(false)}
@@ -246,15 +210,6 @@ export default function Navigation({ onRequestDemo }: NavigationProps) {
             >
               FAQ
             </a>
-            <button
-              onClick={() => {
-                setIsMobileMenuOpen(false);
-                onRequestDemo();
-              }}
-              className="bg-navy-900 hover:bg-navy-950 text-white font-sans text-xs font-bold px-4 py-2 rounded-md"
-            >
-              Request Demo
-            </button>
           </div>
         </div>
       )}

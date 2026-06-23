@@ -161,7 +161,7 @@ export default function CreateAssessment() {
         assignedCount: selectedStudentsCount,
         status: "Scheduled" as const,
         createdDate: new Date().toISOString().split("T")[0],
-        date: "June 20, 2026"
+        date: startTime
       };
 
       const allExams = [storageExam, ...loadAssessments()];

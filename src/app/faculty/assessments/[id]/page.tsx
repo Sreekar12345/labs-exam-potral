@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadAssessments, loadQuestions, loadStudents } from "@/lib/storage";
+import { loadAssessments, saveAssessments, loadQuestions, loadStudents } from "@/lib/storage";
 import { 
   ArrowLeft, 
   BookOpen, 
@@ -171,26 +171,212 @@ export default function AssessmentDetails({ params }: PageProps) {
     const allStudents = loadStudents();
 
     if (foundAsm) {
+      // Load questions matching this assessment
+      let selectedQuestions: any[] = [];
+      const stored = localStorage.getItem("examcoder_assessment_questions_" + foundAsm.id);
+      if (stored) {
+        try {
+          selectedQuestions = JSON.parse(stored);
+        } catch (e) {}
+      }
+      if (!selectedQuestions || selectedQuestions.length === 0) {
+        const limit = foundAsm.questionsCount;
+        selectedQuestions = allQuestions.slice(0, limit);
+      }
+
+      const getTagsList = (q: any): string[] => {
+        if (!q.tags) return [];
+        if (Array.isArray(q.tags)) return q.tags;
+        if (typeof q.tags === "string") {
+          try {
+            const parsed = JSON.parse(q.tags);
+            if (Array.isArray(parsed)) return parsed;
+          } catch (e) {}
+          return [q.tags];
+        }
+        return [];
+      };
+
+      const topics = Array.from(new Set(selectedQuestions.map(q => q.topic).filter(Boolean)));
+      const tags = Array.from(new Set(selectedQuestions.flatMap(q => getTagsList(q)).filter(Boolean)));
+      const allDisplayItems = Array.from(new Set([...topics, ...tags]));
+
+      let descriptionText = "This practical test covers core programming tasks. Students must pass all functional and edge case sandboxed compile tasks.";
+      if (allDisplayItems.length > 0) {
+        let formatted = "";
+        if (allDisplayItems.length === 1) {
+          formatted = allDisplayItems[0];
+        } else if (allDisplayItems.length === 2) {
+          formatted = `${allDisplayItems[0]} and ${allDisplayItems[1]}`;
+        } else {
+          formatted = `${allDisplayItems.slice(0, -1).join(", ")}, and ${allDisplayItems[allDisplayItems.length - 1]}`;
+        }
+        descriptionText = `This practical test covers core tasks in ${formatted}. Students must pass all functional and edge case sandboxed compile tasks.`;
+      }
+
+      const lowerItems = allDisplayItems.map(item => item.toLowerCase());
+      let coMapping = "CO1: Ability to analyze problem statements and design optimal algorithmic workflows.";
+      
+      const hasDS = lowerItems.some(item => 
+        item.includes("tree") || 
+        item.includes("graph") || 
+        item.includes("recursion") || 
+        item.includes("pointer") || 
+        item.includes("list") || 
+        item.includes("stack") || 
+        item.includes("queue") || 
+        item.includes("heap") || 
+        item.includes("bst") || 
+        item.includes("data structures")
+      );
+      
+      const hasOOP = lowerItems.some(item => 
+        item.includes("oop") || 
+        item.includes("polymorphism") || 
+        item.includes("inheritance") || 
+        item.includes("class") || 
+        item.includes("object")
+      );
+      
+      const hasString = lowerItems.some(item => 
+        item.includes("string") || 
+        item.includes("text") || 
+        item.includes("regex") || 
+        item.includes("parsing")
+      );
+
+      if (hasDS) {
+        coMapping = "CO2: Ability to program complex recursive non-linear pointer structures under restricted memory frames.";
+      } else if (hasOOP) {
+        coMapping = "CO4: Ability to design and implement object-oriented program structures with polymorphism and encapsulation.";
+      } else if (hasString) {
+        coMapping = "CO3: Ability to perform efficient text and string manipulation operations in sandboxed runtime engines.";
+      }
+
+      const syllabusText = selectedQuestions.map((q, idx) => `${idx + 1}. ${q.title} implementation and validation.`).join("\n") || 
+                           "1. Coding problem implementation and correctness validation.";
+      
+      const parseAssessmentDate = (dateStr: string): Date => {
+        if (!dateStr) return new Date();
+        const cleanStr = dateStr.trim().toLowerCase();
+        let hasTime = cleanStr.includes(":") || cleanStr.includes("am") || cleanStr.includes("pm") || cleanStr.includes("t");
+
+        let parsed = new Date(dateStr);
+        if (!isNaN(parsed.getTime())) {
+          if (!hasTime) {
+            parsed.setHours(10, 0, 0, 0);
+          }
+          return parsed;
+        }
+
+        if (dateStr.includes("-")) {
+          const parts = dateStr.split("T")[0].split("-");
+          if (parts.length === 3) {
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const day = parseInt(parts[2], 10);
+            parsed = new Date(year, month, day);
+            if (!isNaN(parsed.getTime())) {
+              if (hasTime) {
+                const timePart = cleanStr.split("t")[1] || "";
+                const timeParts = timePart.split(":");
+                if (timeParts.length >= 2) {
+                  parsed.setHours(parseInt(timeParts[0], 10), parseInt(timeParts[1], 10), 0, 0);
+                } else {
+                  parsed.setHours(10, 0, 0, 0);
+                }
+              } else {
+                parsed.setHours(10, 0, 0, 0);
+              }
+              return parsed;
+            }
+          }
+        }
+
+        if (dateStr.includes("/")) {
+          const parts = dateStr.split(" ")[0].split("/");
+          if (parts.length === 3) {
+            const day = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1;
+            const year = parseInt(parts[2], 10);
+            parsed = new Date(year, month, day);
+            if (!isNaN(parsed.getTime())) {
+              if (hasTime) {
+                const rest = cleanStr.split(/\s+/)[1] || "";
+                const timeParts = rest.split(":");
+                if (timeParts.length >= 2) {
+                  let hr = parseInt(timeParts[0], 10);
+                  const min = parseInt(timeParts[1], 10);
+                  if (cleanStr.includes("pm") && hr < 12) hr += 12;
+                  if (cleanStr.includes("am") && hr === 12) hr = 0;
+                  parsed.setHours(hr, min, 0, 0);
+                } else {
+                  parsed.setHours(10, 0, 0, 0);
+                }
+              } else {
+                parsed.setHours(10, 0, 0, 0);
+              }
+              return parsed;
+            }
+          }
+        }
+
+        const fallback = new Date();
+        fallback.setHours(10, 0, 0, 0);
+        return fallback;
+      };
+
+      const formatToISOStringLocal = (date: Date): string => {
+        const year = date.getFullYear();
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+        const hours = String(date.getHours()).padStart(2, "0");
+        const minutes = String(date.getMinutes()).padStart(2, "0");
+        return `${year}-${month}-${day}T${hours}:${minutes}`;
+      };
+
+      let startDate = parseAssessmentDate(foundAsm.date);
+
+      const endDate = new Date(startDate.getTime() + foundAsm.duration * 60 * 1000);
+      const totalMarks = selectedQuestions.reduce((sum, q) => sum + (q.marks || 15), 0);
+
       setAssessmentDetails({
         id: foundAsm.id,
         name: foundAsm.name,
         subject: foundAsm.subject,
         duration: foundAsm.duration,
-        totalMarks: foundAsm.questionsCount * 15,
+        totalMarks: totalMarks,
         type: "Lab Examination",
-        startTime: "2026-06-18T10:00",
-        endTime: "2026-06-18T13:00",
-        description: "This practical test covers core stack, queue, tree configurations, and binary heap traversals. Students must pass all functional and edge case sandboxed compile tasks.",
-        syllabus: "1. Stacks and Queues implementation using linked structures.\n2. Binary Search Trees and tree inversion traversals.\n3. Heap sort operations and priority queue structures.",
+        startTime: formatToISOStringLocal(startDate),
+        endTime: formatToISOStringLocal(endDate),
+        description: descriptionText,
+        syllabus: syllabusText,
         batches: ["CSE - 3rd Year - A", "CSE - 3rd Year - B"],
         createdDate: foundAsm.createdDate,
-        outcomes: "CO2: Ability to program complex recursive non-linear pointer structures under restricted memory frames."
+        outcomes: coMapping
       });
-      setExamStatus(foundAsm.status as any);
+      const now = new Date();
+      const isTimeActive = now >= startDate && now <= endDate;
+      
+      let resolvedStatus = foundAsm.status;
+      if (foundAsm.status === "Scheduled" && isTimeActive) {
+        resolvedStatus = "Active";
+      } else if ((foundAsm.status === "Active" || foundAsm.status === "Scheduled") && now > endDate) {
+        resolvedStatus = "Completed";
+      }
 
-      // Load questions matching this assessment
-      const limit = foundAsm.questionsCount;
-      const selectedQuestions = allQuestions.slice(0, limit);
+      if (resolvedStatus !== foundAsm.status) {
+        const updated = allAssessments.map(a => {
+          if (a.id === foundAsm.id) {
+            return { ...a, status: resolvedStatus };
+          }
+          return a;
+        });
+        saveAssessments(updated);
+      }
+      
+      setExamStatus(resolvedStatus as any);
+
       if (selectedQuestions.length > 0) {
         const mappedQuestions = selectedQuestions.map((q, idx) => {
           const templates = (q.codeTemplates as any) || {
@@ -407,8 +593,11 @@ export default function AssessmentDetails({ params }: PageProps) {
           {examStatus === "Draft" && (
             <button 
               onClick={() => {
+                const allAsms = loadAssessments();
+                const updated = allAsms.map(a => a.id === id ? { ...a, status: "Scheduled" as const } : a);
+                saveAssessments(updated);
                 setExamStatus("Scheduled");
-                alert("Simulation: Assessment published successfully! Status updated to Scheduled.");
+                alert("Assessment published successfully! Status updated to Scheduled.");
               }}
               className="bg-navy-900 hover:bg-navy-950 text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring"
             >
@@ -416,30 +605,21 @@ export default function AssessmentDetails({ params }: PageProps) {
             </button>
           )}
 
-          {examStatus === "Scheduled" && (
-            <button 
-              onClick={() => {
-                setExamStatus("Active");
-                alert("Simulation: Assessment manual window override. Exam is now active.");
-              }}
-              className="bg-emerald-700 hover:bg-emerald-800 text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring animate-pulse"
-            >
-              <Play className="w-3.5 h-3.5" /> Force Activate Now
-            </button>
-          )}
-
           {examStatus === "Active" && (
             <>
               <Link 
                 href={`/faculty/monitoring/${id}`}
-                className="bg-slate-900 hover:bg-slate-950 text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring"
+                className="bg-slate-950 hover:bg-black text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring"
               >
                 <Activity className="w-3.5 h-3.5 animate-pulse text-emerald-400" /> Proctor Control Room
               </Link>
               <button 
                 onClick={() => {
+                  const allAsms = loadAssessments();
+                  const updated = allAsms.map(a => a.id === id ? { ...a, status: "Completed" as const } : a);
+                  saveAssessments(updated);
                   setExamStatus("Completed");
-                  alert("Simulation: Assessment session terminated. Student files submitted.");
+                  alert("Assessment session terminated. Student files submitted.");
                 }}
                 className="bg-rose-700 hover:bg-rose-800 text-white font-bold px-4 py-2 rounded-md flex items-center gap-1.5 transition-all focus-ring"
               >
@@ -456,17 +636,6 @@ export default function AssessmentDetails({ params }: PageProps) {
               <FileSpreadsheet className="w-3.5 h-3.5" /> Export Grading Sheet
             </button>
           )}
-
-          <select 
-            value={examStatus}
-            onChange={(e) => setExamStatus(e.target.value as any)}
-            className="border border-slate-200 bg-white rounded px-2.5 py-1.5 font-bold text-[10px] text-slate-800 focus:outline-hidden"
-          >
-            <option value="Draft">Simulate: Draft</option>
-            <option value="Scheduled">Simulate: Scheduled</option>
-            <option value="Active">Simulate: Active</option>
-            <option value="Completed">Simulate: Completed</option>
-          </select>
         </div>
       </header>
 
@@ -553,13 +722,6 @@ export default function AssessmentDetails({ params }: PageProps) {
                 </div>
               </div>
 
-              <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-4 shadow-2xs">
-                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
-                  Exam Syllabus Scope
-                </h3>
-                <pre className="text-slate-600 font-sans leading-relaxed whitespace-pre-line">{assessmentDetails.syllabus}</pre>
-              </div>
-
             </div>
 
             {/* Sidebar Details and Settings */}
@@ -581,29 +743,13 @@ export default function AssessmentDetails({ params }: PageProps) {
                   </div>
                   <div className="flex justify-between items-center py-1 border-b border-slate-50">
                     <span className="text-slate-500 font-semibold flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" /> Exam Duration:</span>
-                    <span className="font-bold text-slate-850">{assessmentDetails.duration} Minutes</span>
+                    <span className="font-bold text-slate-855">{assessmentDetails.duration} Minutes</span>
                   </div>
                   <div className="flex justify-between items-center py-1">
                     <span className="text-slate-500 font-semibold flex items-center gap-1.5"><FileText className="w-3.5 h-3.5" /> Marks weight:</span>
                     <span className="font-extrabold text-navy-800">{assessmentDetails.totalMarks} Points</span>
                   </div>
                 </div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-lg p-6 space-y-3 shadow-2xs">
-                <h3 className="text-sm font-bold text-slate-900 border-b border-slate-100 pb-2">
-                  Assigned Student cohorts
-                </h3>
-                <div className="flex flex-wrap gap-2 pt-1">
-                  {assessmentDetails.batches.map(batch => (
-                    <span key={batch} className="bg-slate-100 border border-slate-200 px-3 py-1 rounded-full text-slate-700 font-bold">
-                      {batch}
-                    </span>
-                  ))}
-                </div>
-                <p className="text-[10px] text-slate-400 mt-2 font-mono">
-                  All candidates registered inside these departmental groups will be allocated a unique exam session access token automatically.
-                </p>
               </div>
 
             </div>

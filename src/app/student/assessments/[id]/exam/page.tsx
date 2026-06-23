@@ -96,6 +96,8 @@ export default function StudentExamWorkspace({ params }: PageProps) {
   const [selectedLanguage, setSelectedLanguage] = useState<"cpp" | "java" | "python">("python");
   const [codeContent, setCodeContent] = useState(PLACEHOLDER_QUESTION.codeBoilerplate.python);
   const [timerString, setTimerString] = useState("03:00:00");
+  const [candidateInfo, setCandidateInfo] = useState("Aditya Verma (22CSE102)");
+  const [nodeName, setNodeName] = useState("PSG-LAN-104");
   const [isRunning, setIsRunning] = useState(false);
   const [showConsole, setShowConsole] = useState(true);
   const [consoleOutput, setConsoleOutput] = useState<string[]>([
@@ -131,6 +133,16 @@ export default function StudentExamWorkspace({ params }: PageProps) {
 
       setScheduledDateStr(found.date);
       const profile = loadStudentProfile();
+      if (profile && profile.name) {
+        setCandidateInfo(`${profile.name} (${profile.roll})`);
+      }
+      if (profile) {
+        const rollSuffix = (profile.roll || "22CSE102").match(/\d+$/)?.[0] || "104";
+        const collegePrefix = profile.collegeName?.toLowerCase().includes("gouthami") || profile.collegeName?.toLowerCase().includes("gowthami")
+          ? "GITMW"
+          : "PSG";
+        setNodeName(`${collegePrefix}-LAN-${rollSuffix}`);
+      }
       const studentRoll = profile.roll || "DEMO_STUDENT";
       const sessions = loadExamSessions();
       const currentStatus = getAssessmentStatus(found, studentRoll, sessions);
@@ -409,7 +421,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         
         <div className="flex items-center gap-3 font-sans font-bold">
           <span className="bg-rose-900/60 border border-rose-800 px-2 py-0.5 rounded text-[9px] uppercase tracking-wider text-rose-300">
-            Node: PSG-LAN-104
+            Node: {nodeName}
           </span>
           <button 
             onClick={triggerProctorWarning}
@@ -442,7 +454,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
           </div>
 
           <div className="text-slate-400 text-[10px] border-l border-slate-800 pl-4 font-mono font-bold">
-            Candidate: <span className="text-white">Aditya Verma (22CSE102)</span>
+            Candidate: <span className="text-white">{candidateInfo}</span>
           </div>
         </div>
       </div>

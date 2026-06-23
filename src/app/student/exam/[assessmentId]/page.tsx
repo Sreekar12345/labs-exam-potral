@@ -721,6 +721,20 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       });
     }
 
+    // Save session submit timestamp on auto-submit
+    try {
+      const sessions = loadExamSessions();
+      const updated = sessions.map(s => {
+        if (s.studentRoll === studentRoll && s.assessmentId === assessmentId) {
+          return { ...s, submittedAt: new Date().toISOString() };
+        }
+        return s;
+      });
+      saveExamSessions(updated);
+    } catch (e) {
+      console.error("Failed to save exam session submit timestamp on auto-submit:", e);
+    }
+
     setQuestionStates(prev => {
       const next = { ...prev };
       Object.keys(next).forEach(key => {

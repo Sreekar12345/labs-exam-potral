@@ -10,7 +10,8 @@ import {
   loadFacultyProfile,
   ReportLog,
   Assessment,
-  Student
+  Student,
+  getAssessmentStatus
 } from "@/lib/storage";
 import { 
   FileSpreadsheet, 
@@ -74,7 +75,10 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
   useEffect(() => {
     setReports(loadReports());
     const asms = loadAssessments();
-    setAssessments(asms.filter(a => a.status === "Completed" || a.status === "Active"));
+    setAssessments(asms.filter(a => {
+      const dynamicStatus = getAssessmentStatus(a, "", []);
+      return dynamicStatus === "Completed";
+    }));
     setStudentCount(loadStudents().length);
     setFacultyName(loadFacultyProfile().fullName);
   }, []);
@@ -94,7 +98,8 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
       generatedDate: new Date().toISOString().split("T")[0],
       generatedBy: facultyName || "Faculty HOD",
       exportType: "PDF",
-      downloadCount: 0
+      downloadCount: 0,
+      assessmentId: scheduleForm.assessmentId || undefined
     };
 
     const updated = [newReport, ...reports];
