@@ -558,7 +558,8 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         body: JSON.stringify({
           code: codeToRun,
           language: selectedLanguage,
-          input: inputToRun
+          input: inputToRun,
+          questionTitle: currentQuestion.title
         })
       });
 
