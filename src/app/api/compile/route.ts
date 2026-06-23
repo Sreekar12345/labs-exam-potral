@@ -88,6 +88,19 @@ const runProcess = (
   });
 };
 
+// Clean comments and strings from code to analyze identifiers safely
+function cleanCodeForAnalysis(code: string): string {
+  // 1. Remove comments
+  let clean = code.replace(/#[^\n]*/g, "");
+  // 2. Remove triple-quoted strings ('''...''' or """...""")
+  clean = clean.replace(/'''[\s\S]*?'''/g, "");
+  clean = clean.replace(/"""[\s\S]*?"""/g, "");
+  // 3. Remove double-quoted and single-quoted strings
+  clean = clean.replace(/"[^"\\]*(?:\\.[^"\\]*)*"/g, "");
+  clean = clean.replace(/'[^'\\]*(?:\\.[^'\\]*)*'/g, "");
+  return clean;
+}
+
 // JS/TS-based Python validator and simulator for institutional questions
 function simulatePython(questionTitle: string, userCode: string, input: string): { stdout: string; stderr: string; exitCode: number } {
   const lines = userCode.split('\n');
@@ -211,6 +224,32 @@ function simulatePython(questionTitle: string, userCode: string, input: string):
       stderr: `  File "solution.py", line ${errLine}\n    ${lines[errLine-1].trim()}\nSyntaxError: Missing parentheses in call to 'print'. Did you mean print(...)?`,
       exitCode: 1
     };
+  }
+
+  // 3.5. Callable method reference checks (detecting references to string/list methods without parentheses)
+  const cleanCode = cleanCodeForAnalysis(userCode);
+  const callables = [
+    "join", "upper", "lower", "split", "swapcase", "strip", "replace", 
+    "isdigit", "isnumeric", "isalpha", "isalnum", "input"
+  ];
+  
+  for (const name of callables) {
+    const regex = new RegExp(`\\b${name}\\b(?!\\s*\\()`);
+    if (regex.test(cleanCode)) {
+      let errLine = 1;
+      for (let i = 0; i < lines.length; i++) {
+        const lineClean = cleanCodeForAnalysis(lines[i]);
+        if (new RegExp(`\\b${name}\\b(?!\\s*\\()`).test(lineClean)) {
+          errLine = i + 1;
+          break;
+        }
+      }
+      return {
+        stdout: "",
+        stderr: `  File "solution.py", line ${errLine}\n    ${lines[errLine-1].trim()}\nTypeError: '${name}' object is not callable or was referenced without parentheses`,
+        exitCode: 1
+      };
+    }
   }
 
   // 4. Check for correct solution logic
