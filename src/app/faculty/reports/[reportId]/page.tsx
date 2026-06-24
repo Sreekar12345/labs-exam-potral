@@ -592,7 +592,8 @@ export default function ReportDetailsPage({ params }: PageProps) {
   }, [studentsWithScores]);
 
   const dynamicDistributions = React.useMemo(() => {
-    const total = studentsWithScores.length || 1;
+    const appearedStudents = studentsWithScores.filter(s => s.statusStr !== "NOT ATTEMPTED");
+    const total = appearedStudents.length || 1;
     const submittedStudents = studentsWithScores.filter(s => s.score !== null && s.statusStr === "SUBMITTED");
     const exc = submittedStudents.filter(s => s.score! >= 45).length;
     const gd = submittedStudents.filter(s => s.score! >= 35 && s.score! < 45).length;
