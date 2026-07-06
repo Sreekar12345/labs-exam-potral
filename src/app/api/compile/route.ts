@@ -13,7 +13,7 @@ const runProcess = (
   return new Promise((resolve) => {
     let child: any;
     try {
-      child = spawn(cmd, args);
+      child = spawn(cmd, args, { shell: true });
     } catch (err: any) {
       resolve({
         stdout: "",
@@ -102,7 +102,7 @@ function cleanCodeForAnalysis(code: string): string {
 }
 
 // JS/TS-based Python validator and simulator for institutional questions
-function simulatePython(questionTitle: string, userCode: string, input: string): { stdout: string; stderr: string; exitCode: number } {
+export function simulatePython(questionTitle: string, userCode: string, input: string): { stdout: string; stderr: string; exitCode: number } {
   const lines = userCode.split('\n');
   let cleanTitle = (questionTitle || "").trim().toLowerCase();
 
@@ -207,6 +207,95 @@ function simulatePython(questionTitle: string, userCode: string, input: string):
           exitCode: 1
         };
       }
+    }
+  }
+
+  // 2.5. Invalid colons check (e.g. 'a'<=ch <= 'z': without block keyword)
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (line.startsWith('#') || line === "") continue;
+    const cleanLine = line.split('#')[0].trim();
+    if (cleanLine.endsWith(':')) {
+      const startsWithKeyword = /^(def|class|if|elif|else|for|while|try|except|finally|with|async)\b/.test(cleanLine);
+      if (!startsWithKeyword) {
+        let openBrackets = 0;
+        for (const c of cleanLine) {
+          if (c === '(' || c === '[' || c === '{') openBrackets++;
+          if (c === ')' || c === ']' || c === '}') openBrackets--;
+        }
+        if (openBrackets === 0) {
+          return {
+            stdout: "",
+            stderr: `  File "solution.py", line ${i + 1}\n    ${line}\nSyntaxError: invalid syntax`,
+            exitCode: 1
+          };
+        }
+      }
+    }
+  }
+
+  // 2.6. Indentation check after block start
+  let expectIndentNext = false;
+  let prevIndent = 0;
+  let prevLineNum = 0;
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (line.trim() === "" || line.trim().startsWith("#")) continue;
+    const currentIndent = line.length - line.trimStart().length;
+
+    if (expectIndentNext) {
+      if (currentIndent <= prevIndent) {
+        return {
+          stdout: "",
+          stderr: `  File "solution.py", line ${i + 1}\n    ${line.trim()}\nIndentationError: expected an indented block after '${lines[prevLineNum].trim()}'`,
+          exitCode: 1
+        };
+      }
+      expectIndentNext = false;
+    }
+
+    const cleanLine = line.split('#')[0].trim();
+    if (cleanLine.endsWith(':')) {
+      expectIndentNext = true;
+      prevIndent = currentIndent;
+      prevLineNum = i;
+    }
+  }
+
+  // 2.7. Undefined function calls check (e.g. inpt())
+  const cleanCodeText = cleanCodeForAnalysis(userCode);
+  const userFuncs = new Set<string>();
+  for (const line of lines) {
+    const match = line.trim().match(/^(?:def|class)\s+([a-zA-Z_][a-zA-Z0-9_]*)/);
+    if (match) {
+      userFuncs.add(match[1]);
+    }
+  }
+
+  const standardBuiltins = new Set([
+    "input", "print", "len", "int", "str", "chr", "ord", "range", "list", "dict", "set", "sum", "max", "min", "sorted",
+    "float", "abs", "round", "type", "enumerate", "zip", "map", "filter", "bool", "repr", "dir", "help", "next",
+    "iter", "isinstance", "issubclass", "getattr", "setattr", "hasattr", "delattr", "callable", "eval", "exec", "hash",
+    "id", "pow", "divmod", "all", "any", "reversed", "super", "property", "staticmethod", "classmethod"
+  ]);
+
+  const callRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+  let callMatch;
+  while ((callMatch = callRegex.exec(cleanCodeText)) !== null) {
+    const funcName = callMatch[1];
+    if (!standardBuiltins.has(funcName) && !userFuncs.has(funcName)) {
+      let errLine = 1;
+      for (let i = 0; i < lines.length; i++) {
+        if (new RegExp(`\\b${funcName}\\b\\s*\\(`).test(cleanCodeForAnalysis(lines[i]))) {
+          errLine = i + 1;
+          break;
+        }
+      }
+      return {
+        stdout: "",
+        stderr: `  File "solution.py", line ${errLine}\n    ${lines[errLine-1].trim()}\nNameError: name '${funcName}' is not defined`,
+        exitCode: 1
+      };
     }
   }
 

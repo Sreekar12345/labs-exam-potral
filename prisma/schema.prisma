@@ -98,12 +98,13 @@ model ReportLog {
 }
 
 model ExamSession {
-  id            String  @id
-  studentRoll   String
-  assessmentId  String
-  questionOrder String
-  startedAt     String
-  submittedAt   String?
+  id              String  @id
+  studentRoll     String
+  assessmentId    String
+  questionOrder   String
+  startedAt       String
+  submittedAt     String?
+  codeSubmissions String?
 
   @@unique([studentRoll, assessmentId])
 }

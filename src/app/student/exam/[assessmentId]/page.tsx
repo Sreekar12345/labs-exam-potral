@@ -697,6 +697,26 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       );
     }
 
+    try {
+      const sessions = loadExamSessions();
+      const updated = sessions.map(s => {
+        if (s.studentRoll === studentRoll && s.assessmentId === assessmentId) {
+          let subs: Record<string, string> = {};
+          if (s.codeSubmissions) {
+            try {
+              subs = JSON.parse(s.codeSubmissions);
+            } catch (e) {}
+          }
+          subs[currentQuestion.id] = codeContent[currentQuestion.id] || "";
+          return { ...s, codeSubmissions: JSON.stringify(subs) };
+        }
+        return s;
+      });
+      saveExamSessions(updated);
+    } catch (e) {
+      console.error("Failed to save code submission to ExamSession:", e);
+    }
+
     setTimeout(() => {
       setQuestionStates(prev => ({
         ...prev,
@@ -726,7 +746,20 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       const sessions = loadExamSessions();
       const updated = sessions.map(s => {
         if (s.studentRoll === studentRoll && s.assessmentId === assessmentId) {
-          return { ...s, submittedAt: new Date().toISOString() };
+          let subs: Record<string, string> = {};
+          if (s.codeSubmissions) {
+            try {
+              subs = JSON.parse(s.codeSubmissions);
+            } catch (e) {}
+          }
+          questions.forEach(q => {
+            subs[q.id] = codeContent[q.id] || "";
+          });
+          return { 
+            ...s, 
+            submittedAt: new Date().toISOString(),
+            codeSubmissions: JSON.stringify(subs)
+          };
         }
         return s;
       });
@@ -760,7 +793,20 @@ export default function StudentExamWorkspace({ params }: PageProps) {
       const sessions = loadExamSessions();
       const updated = sessions.map(s => {
         if (s.studentRoll === studentRoll && s.assessmentId === assessmentId) {
-          return { ...s, submittedAt: new Date().toISOString() };
+          let subs: Record<string, string> = {};
+          if (s.codeSubmissions) {
+            try {
+              subs = JSON.parse(s.codeSubmissions);
+            } catch (e) {}
+          }
+          questions.forEach(q => {
+            subs[q.id] = codeContent[q.id] || "";
+          });
+          return { 
+            ...s, 
+            submittedAt: new Date().toISOString(),
+            codeSubmissions: JSON.stringify(subs)
+          };
         }
         return s;
       });

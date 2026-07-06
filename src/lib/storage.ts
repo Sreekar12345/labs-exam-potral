@@ -31,6 +31,7 @@ export interface ExamSession {
   questionOrder: string; // JSON array string of question IDs
   startedAt: string;
   submittedAt: string | null;
+  codeSubmissions?: string | null;
 }
 
 export interface Question {

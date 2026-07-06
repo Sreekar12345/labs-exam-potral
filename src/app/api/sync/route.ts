@@ -270,6 +270,7 @@ export async function POST(request: Request) {
             questionOrder: es.questionOrder,
             startedAt: es.startedAt,
             submittedAt: es.submittedAt,
+            codeSubmissions: es.codeSubmissions || null,
           },
           create: {
             id: es.id,
@@ -278,6 +279,7 @@ export async function POST(request: Request) {
             questionOrder: es.questionOrder,
             startedAt: es.startedAt,
             submittedAt: es.submittedAt,
+            codeSubmissions: es.codeSubmissions || null,
           },
         });
       }

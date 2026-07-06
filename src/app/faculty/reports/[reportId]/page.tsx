@@ -373,11 +373,19 @@ export default function ReportDetailsPage({ params }: PageProps) {
         };
       });
 
-      // Check if student has actual attempts in localStorage
+      // Resolve code submissions from session first
+      let sessionCodes: Record<string, string> = {};
+      if (session && session.codeSubmissions) {
+        try {
+          sessionCodes = JSON.parse(session.codeSubmissions);
+        } catch (e) {}
+      }
+
+      // Check if student has actual attempts in localStorage or database session
       let hasActualSubmissions = false;
       const studentAttempts = resolved.map(q => {
         const key = `examcoder_code_${s.roll}_${primaryAssessmentId}_${q.id}`;
-        const localCode = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+        const localCode = sessionCodes[q.id || ""] || (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
         
         const isAttempted = localCode !== null && localCode.trim() !== "" && 
                             localCode.replace(/\s/g, "") !== `#Language:Python3.10defsolve():passsolve()`.replace(/\s/g, "") &&
@@ -404,8 +412,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
         });
         score = computed;
       } else if (hasSubmitted) {
-        const hash = s.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-        score = Math.round(30 + (hash % 20));
+        score = 0;
       }
 
       return { ...s, score, statusStr };
@@ -830,11 +837,19 @@ export default function ReportDetailsPage({ params }: PageProps) {
               // 2. Calculate student outcomes and metrics in a single pass
               const isSuspended = studentItem.status === "Suspended";
 
-              // Check if the student has actual attempts in localStorage
+              // Resolve code submissions from session first
+              let sessionCodes: Record<string, string> = {};
+              if (session && session.codeSubmissions) {
+                try {
+                  sessionCodes = JSON.parse(session.codeSubmissions);
+                } catch (e) {}
+              }
+
+              // Check if the student has actual attempts in localStorage or database session
               let hasActualSubmissions = false;
               const studentAttempts = resolved.map(q => {
                 const key = `examcoder_code_${studentItem.roll}_${primaryAssessmentId}_${q.id}`;
-                const localCode = typeof window !== "undefined" ? window.localStorage.getItem(key) : null;
+                const localCode = sessionCodes[q.id || ""] || (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
                 
                 const isAttempted = localCode !== null && localCode.trim() !== "" && 
                                     localCode.replace(/\s/g, "") !== `#Language:Python3.10defsolve():passsolve()`.replace(/\s/g, "") &&
@@ -881,61 +896,18 @@ export default function ReportDetailsPage({ params }: PageProps) {
                   };
                 });
               } else {
-                // Fallback to simulated logic if no actual local submissions exist
-                const hash = studentItem.name.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
-                const baseMarks = isSuspended ? 0 : (studentItem.score !== null ? studentItem.score : Math.round(15 + (hash % 35)));
-                const rawAttempted = isSuspended ? 0 : Math.round(1 + (hash % 4));
-
-                let remaining = baseMarks;
-                let correctCount = 0;
-                resolved.forEach((q, idx) => {
-                  const qMarks = q.marks || 10;
-                  const shouldSkip = (idx === 1 && hash % 2 === 0 && remaining >= qMarks && idx < resolved.length - 1);
-                  if (remaining >= qMarks && !shouldSkip) {
-                    remaining -= qMarks;
-                    correctCount++;
-                  } else if (remaining >= qMarks && idx === resolved.length - 1) {
-                    remaining -= qMarks;
-                    correctCount++;
-                  }
-                });
-
-                attempted = isSuspended ? 0 : Math.max(rawAttempted, correctCount);
-
-                remaining = baseMarks;
-                questionOutcomes = resolved.map((q, idx) => {
-                  const qMarks = q.marks || 10;
-                  const shouldSkip = (idx === 1 && hash % 2 === 0 && remaining >= qMarks && idx < resolved.length - 1);
-                  
-                  let attemptedStatus = "No";
-                  let result = "N/A";
-                  let marksAllocated = 0;
-
-                  if (remaining >= qMarks && !shouldSkip) {
-                    remaining -= qMarks;
-                    attemptedStatus = "Yes";
-                    result = "Correct";
-                    marksAllocated = qMarks;
-                    computedMarks += qMarks;
-                  } else if (remaining >= qMarks && idx === resolved.length - 1) {
-                    remaining -= qMarks;
-                    attemptedStatus = "Yes";
-                    result = "Correct";
-                    marksAllocated = qMarks;
-                    computedMarks += qMarks;
-                  } else if (idx < attempted) {
-                    attemptedStatus = "Yes";
-                    result = "Incorrect";
-                    marksAllocated = 0;
-                  }
-
-                  let submittedCode = "";
-                  if (attemptedStatus === "Yes") {
-                    const key = `examcoder_code_${studentItem.roll}_${primaryAssessmentId}_${q.id}`;
-                    submittedCode = (typeof window !== "undefined" && window.localStorage.getItem(key)) || getCodeLogic(q.id || "", q.title || "");
-                  }
-
-                  return { id: q.id, title: q.title, attempted: attemptedStatus, result, marks: marksAllocated, submittedCode };
+                // If student has submitted the assessment, but no code submissions found, outcomes are unattempted (0 marks)
+                attempted = 0;
+                computedMarks = studentItem.score || 0;
+                questionOutcomes = resolved.map((q) => {
+                  return {
+                    id: q.id,
+                    title: q.title,
+                    attempted: "No",
+                    result: "N/A",
+                    marks: 0,
+                    submittedCode: ""
+                  };
                 });
               }
 

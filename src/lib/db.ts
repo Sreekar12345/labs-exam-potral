@@ -12,9 +12,10 @@ let db: PrismaClient;
 
 if (typeof window === "undefined") {
   if (!globalForPrisma.pool) {
+    const isLocal = process.env.DATABASE_URL?.includes("localhost") || process.env.DATABASE_URL?.includes("127.0.0.1");
     globalForPrisma.pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false },
+      ssl: isLocal ? false : { rejectUnauthorized: false },
       connectionTimeoutMillis: 30000, // Wait up to 30 seconds for connections (Neon cold starts)
       max: 20, // Limit connection pool size
       idleTimeoutMillis: 30000, // Close idle connections after 30 seconds

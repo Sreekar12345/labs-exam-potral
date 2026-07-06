@@ -60,7 +60,7 @@ export default function AdminLogin() {
       }
     } catch (err) {
       setIsLoading(false);
-      setErrors({ general: "Failed to connect to the authentication server." });
+      setErrors({ general: "Failed to connect to the authentication server. If you are using the deployed link, this could be due to a database cold start. Please wait 10-15 seconds and try again." });
     }
   };
 
