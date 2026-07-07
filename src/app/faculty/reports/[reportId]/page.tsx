@@ -1163,10 +1163,20 @@ export default function ReportDetailsPage({ params }: PageProps) {
                           return (
                             <tr key={student.id} className="bg-white hover:bg-slate-50/40">
                               <td className="py-3 px-3 font-semibold text-slate-900 font-mono text-[10px]">
-                                {student.roll}
+                                <button
+                                  onClick={() => router.push(`/faculty/reports/student-scorecard/${student.roll}/${primaryAssessment.id}`)}
+                                  className="text-left font-semibold text-slate-900 hover:text-blue-700 hover:underline font-mono text-[10px] outline-hidden"
+                                >
+                                  {student.roll}
+                                </button>
                               </td>
                               <td className="py-3 px-3 text-slate-800 font-bold">
-                                {student.name}
+                                <button
+                                  onClick={() => router.push(`/faculty/reports/student-scorecard/${student.roll}/${primaryAssessment.id}`)}
+                                  className="text-left font-bold text-slate-900 hover:text-blue-700 hover:underline outline-hidden"
+                                >
+                                  {student.name}
+                                </button>
                               </td>
                               <td className="py-3 px-3 text-center text-slate-800">
                                 <span className={`font-bold ${statusText === "PASS" ? "text-emerald-700" : statusText === "FAIL" ? "text-rose-700" : "text-slate-500"}`}>
@@ -1339,8 +1349,22 @@ export default function ReportDetailsPage({ params }: PageProps) {
                       <tbody className="divide-y divide-rose-100 font-mono">
                         {dynamicAtRisk.map((s, idx) => (
                           <tr key={idx} className="bg-white hover:bg-rose-50/30">
-                            <td className="py-3 px-3 font-bold text-slate-850">{s.roll}</td>
-                            <td className="py-3 px-3 font-sans font-medium text-slate-900">{s.name}</td>
+                            <td className="py-3 px-3 font-bold text-slate-850">
+                              <button
+                                onClick={() => router.push(`/faculty/reports/student-scorecard/${s.roll}/${primaryAssessment.id}`)}
+                                className="text-left font-bold text-slate-850 hover:text-blue-700 hover:underline font-mono outline-hidden"
+                              >
+                                {s.roll}
+                              </button>
+                             </td>
+                             <td className="py-3 px-3 font-sans font-medium text-slate-900">
+                              <button
+                                onClick={() => router.push(`/faculty/reports/student-scorecard/${s.roll}/${primaryAssessment.id}`)}
+                                className="text-left font-medium text-slate-900 hover:text-blue-700 hover:underline outline-hidden"
+                              >
+                                {s.name}
+                              </button>
+                             </td>
                             <td className="py-3 px-3 text-center text-rose-700 font-bold">{s.score}</td>
                             <td className="py-3 px-3 font-sans text-slate-650">{s.weakArea}</td>
                             <td className="py-3 px-3 text-right font-sans text-blue-750 font-bold">{s.actionPlan}</td>
