@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { 
   Users, 
   AlertTriangle, 
@@ -29,6 +30,7 @@ interface DashboardMockupProps {
 }
 
 export default function DashboardMockup({ collegeName }: DashboardMockupProps) {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<"monitoring" | "exams">("monitoring");
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [assessments, setAssessments] = useState<any[]>([]);
@@ -377,8 +379,18 @@ export default function DashboardMockup({ collegeName }: DashboardMockupProps) {
                         <div className="text-slate-400 font-mono pt-0.5">{log.time}</div>
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
-                            <span className="font-semibold text-slate-900 truncate">{log.student}</span>
-                            <span className="text-[10px] bg-slate-100 text-slate-650 px-1.5 py-0.5 rounded font-mono font-medium">{log.roll}</span>
+                            <button
+                              onClick={() => router.push(`/faculty/reports/student-scorecard/${log.roll}/5`)}
+                              className="font-semibold text-blue-600 hover:text-blue-800 underline truncate text-left outline-hidden"
+                            >
+                              {log.student}
+                            </button>
+                            <button
+                              onClick={() => router.push(`/faculty/reports/student-scorecard/${log.roll}/5`)}
+                              className="text-[10px] bg-slate-100 text-blue-600 hover:text-blue-800 underline px-1.5 py-0.5 rounded font-mono font-medium outline-hidden"
+                            >
+                              {log.roll}
+                            </button>
                           </div>
                           <p className="text-slate-600 mt-0.5 truncate">{log.event}</p>
                         </div>
@@ -500,8 +512,11 @@ export default function DashboardMockup({ collegeName }: DashboardMockupProps) {
                           )}
                         </div>
                         {exam.status === "Completed" ? (
-                          <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1 text-[11px]">
-                            <FileSpreadsheet className="w-3.5 h-3.5 text-slate-500" /> Export PDF
+                          <button 
+                            onClick={() => router.push(`/faculty/reports/rep-asm-${exam.id}`)}
+                            className="bg-white border border-slate-200 hover:bg-slate-50 text-blue-600 hover:text-blue-800 underline px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1 text-[11px]"
+                          >
+                            <FileSpreadsheet className="w-3.5 h-3.5 text-blue-500" /> Export PDF
                           </button>
                         ) : exam.status === "Scheduled" || exam.status === "Draft" ? (
                           <button className="bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 px-3 py-1.5 rounded-md font-medium transition-all flex items-center gap-1 text-[11px]">
