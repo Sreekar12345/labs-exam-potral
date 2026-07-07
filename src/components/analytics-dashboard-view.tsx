@@ -23,11 +23,56 @@ import {
   Layers,
   ChevronDown
 } from "lucide-react";
-import { loadStudents, loadAssessments, loadQuestions } from "@/lib/storage";
+import { loadStudents, loadAssessments, loadQuestions, loadExamSessions } from "@/lib/storage";
 
 interface AnalyticsDashboardViewProps {
   initialRole?: "Faculty" | "HOD" | "Principal" | "Admin";
   isStandalone?: boolean;
+}
+
+// Helper to determine if code is correct (copied from reports details page)
+function isCodeCorrect(qTitle: string, code: string): boolean {
+  if (!code || code.trim() === "") return false;
+  if (/\bprint\s+[^(\s]/.test(code)) return false; // Python 3 print syntax error
+
+  const cleanTitle = qTitle.toLowerCase();
+  if (cleanTitle.includes("reverse each word")) {
+    return code.includes(".split") && (code.includes("[::-1]") || code.includes("reverse"));
+  }
+  if (cleanTitle.includes("reverse the string")) {
+    return code.includes("[::-1]") || code.includes("reverse");
+  }
+  if (cleanTitle.includes("sum of list") || cleanTitle.includes("sum of elements")) {
+    return code.includes("sum(") || code.includes("+") || code.includes("+= ");
+  }
+  if (cleanTitle.includes("count the characters")) {
+    return code.includes("len(");
+  }
+  if (cleanTitle.includes("palindrome of string")) {
+    return code.includes("==") && (code.includes("[::-1]") || code.includes("reverse"));
+  }
+  if (cleanTitle.includes("lowercase to uppercase") && cleanTitle.includes("without")) {
+    return !code.includes(".upper()") && (code.includes("ord(") || code.includes("chr(") || code.includes("- 32") || code.includes("-32"));
+  }
+  if (cleanTitle.includes("lowercase to uppercase")) {
+    return code.includes(".upper()");
+  }
+  if (cleanTitle.includes("count of even and odd")) {
+    return code.includes("% 2") || code.includes("mod");
+  }
+  if (cleanTitle.includes("remove duplicate characters")) {
+    return code.includes("set(") || code.includes("not in") || code.includes("unique");
+  }
+  if (cleanTitle.includes("mirror word check")) {
+    return code.includes("[::-1]") || code.includes("==");
+  }
+  if (cleanTitle.includes("character frequency winner")) {
+    return code.includes("count") || code.includes("max(") || code.includes("dict");
+  }
+  if (cleanTitle.includes("count and sum of positive and negative")) {
+    return code.includes("> 0") && code.includes("< 0");
+  }
+  return code.length > 30; // Fallback default correctness check
 }
 
 export default function AnalyticsDashboardView({ 
@@ -47,8 +92,6 @@ export default function AnalyticsDashboardView({
   const [assessmentFilter, setAssessmentFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
 
-
-
   // Tab state
   const [activeSubTab, setActiveSubTab] = useState<"trends" | "students" | "topics" | "cohorts" | "leaderboard">("trends");
 
@@ -56,11 +99,13 @@ export default function AnalyticsDashboardView({
   const [allStudents, setAllStudents] = useState<any[]>([]);
   const [allAssessments, setAllAssessments] = useState<any[]>([]);
   const [allQuestions, setAllQuestions] = useState<any[]>([]);
+  const [examSessions, setExamSessions] = useState<any[]>([]);
 
   useEffect(() => {
     setAllStudents(loadStudents());
     setAllAssessments(loadAssessments());
     setAllQuestions(loadQuestions());
+    setExamSessions(loadExamSessions());
   }, []);
 
   const isEmptyState = allStudents.length === 0 || allAssessments.length === 0;
@@ -82,11 +127,60 @@ export default function AnalyticsDashboardView({
     }
   };
 
-  // Dynamic student virtual score function
+  // Dynamic student virtual score function using actual exam sessions
   const getStudentVirtualScore = (s: any) => {
-    if (s.status === "Suspended") return 24;
-    const hash = s.name.split("").reduce((acc: number, char: string) => acc + char.charCodeAt(0), 0);
-    return 65 + (hash % 31); // scores between 65 and 95
+    if (s.status === "Suspended") return 0;
+    
+    // Find sessions for this student
+    const studentSessions = examSessions.filter(es => es.studentRoll === s.roll);
+    if (studentSessions.length === 0) return 0;
+    
+    let totalScore = 0;
+    let gradedSessions = 0;
+    
+    studentSessions.forEach(session => {
+      // Only grade submitted assessments
+      if (!session.submittedAt) return;
+      
+      let sessionCodes: Record<string, string> = {};
+      if (session.codeSubmissions) {
+        try {
+          sessionCodes = JSON.parse(session.codeSubmissions);
+        } catch (e) {}
+      }
+      
+      let questionIds: string[] = [];
+      try {
+        questionIds = session.questionOrder ? JSON.parse(session.questionOrder) : ["15", "21", "9", "8", "18"];
+      } catch (e) {
+        questionIds = ["15", "21", "9", "8", "18"];
+      }
+      
+      let sessionScore = 0;
+      questionIds.forEach((id, index) => {
+        const q = allQuestions.find(qu => qu.id === id) || {
+          id,
+          title: id === "15" ? "Count of Even and Odd Numbers" :
+                 id === "21" ? "Remove Duplicate Characters" :
+                 id === "9" ? "Mirror Word Check" :
+                 id === "8" ? "Character Frequency Winner" :
+                 id === "18" ? "Count and Sum of Positive and Negative Numbers" : `Question ${index + 1}`,
+          marks: 10
+        };
+        const localCode = sessionCodes[q.id || ""];
+        if (localCode) {
+          const isCorrect = isCodeCorrect(q.title || "", localCode);
+          if (isCorrect) {
+            sessionScore += (q.marks || 10);
+          }
+        }
+      });
+      
+      totalScore += (sessionScore / 50) * 100;
+      gradedSessions++;
+    });
+    
+    return gradedSessions > 0 ? totalScore / gradedSessions : 0;
   };
 
   // Dynamic values using useMemo
@@ -317,38 +411,124 @@ export default function AnalyticsDashboardView({
     });
   }, [allStudents, searchQuery, deptFilter, sectionFilter, batchFilter]);
 
-  // Trend Data historical values for charts
+  // Trend Data historical values for charts using actual completed assessments
   const trendData = React.useMemo(() => {
-    const score = aggregateScore;
-    const pass = aggregatePassPercentage;
-    const participation = allStudents.length ? 95 : 0;
-    return {
+    const completedAsms = allAssessments.filter(a => a.status === "Completed");
+    
+    // Fallback labels to show empty/flat lines based on current stats if no completed assessments exist
+    const defaultData = {
       Weekly: [
-        { name: "W1", score: Math.round(score * 0.8), pass: Math.round(pass * 0.8), participation: Math.round(participation * 0.8) },
-        { name: "W2", score: Math.round(score * 0.9), pass: Math.round(pass * 0.9), participation: Math.round(participation * 0.9) },
-        { name: "W3", score: Math.round(score * 0.95), pass: Math.round(pass * 0.95), participation: Math.round(participation * 0.95) },
-        { name: "W4", score: score, pass: pass, participation: participation }
+        { name: "W1", score: 0, pass: 0, participation: 0 },
+        { name: "W2", score: 0, pass: 0, participation: 0 },
+        { name: "W3", score: 0, pass: 0, participation: 0 },
+        { name: "W4", score: aggregateScore, pass: aggregatePassPercentage, participation: allStudents.length ? 100 : 0 }
       ],
       Monthly: [
-        { name: "Jan", score: Math.round(score * 0.75), pass: Math.round(pass * 0.75), participation: Math.round(participation * 0.75) },
-        { name: "Feb", score: Math.round(score * 0.85), pass: Math.round(pass * 0.85), participation: Math.round(participation * 0.85) },
-        { name: "Mar", score: Math.round(score * 0.92), pass: Math.round(pass * 0.92), participation: Math.round(participation * 0.92) },
-        { name: "Apr", score: score, pass: pass, participation: participation }
+        { name: "Jan", score: 0, pass: 0, participation: 0 },
+        { name: "Feb", score: 0, pass: 0, participation: 0 },
+        { name: "Mar", score: 0, pass: 0, participation: 0 },
+        { name: "Apr", score: aggregateScore, pass: aggregatePassPercentage, participation: allStudents.length ? 100 : 0 }
       ],
       Semester: [
-        { name: "Sem 1", score: Math.round(score * 0.7), pass: Math.round(pass * 0.7), participation: Math.round(participation * 0.7) },
-        { name: "Sem 2", score: Math.round(score * 0.8), pass: Math.round(pass * 0.8), participation: Math.round(participation * 0.8) },
-        { name: "Sem 3", score: Math.round(score * 0.9), pass: Math.round(pass * 0.9), participation: Math.round(participation * 0.9) },
-        { name: "Sem 4", score: score, pass: pass, participation: participation }
+        { name: "Sem 1", score: 0, pass: 0, participation: 0 },
+        { name: "Sem 2", score: 0, pass: 0, participation: 0 },
+        { name: "Sem 3", score: 0, pass: 0, participation: 0 },
+        { name: "Sem 4", score: aggregateScore, pass: aggregatePassPercentage, participation: allStudents.length ? 100 : 0 }
       ],
       Yearly: [
-        { name: "2023", score: Math.round(score * 0.75), pass: Math.round(pass * 0.75), participation: Math.round(participation * 0.75) },
-        { name: "2024", score: Math.round(score * 0.85), pass: Math.round(pass * 0.85), participation: Math.round(participation * 0.85) },
-        { name: "2025", score: Math.round(score * 0.9), pass: Math.round(pass * 0.9), participation: Math.round(participation * 0.9) },
-        { name: "2026", score: score, pass: pass, participation: participation }
+        { name: "2023", score: 0, pass: 0, participation: 0 },
+        { name: "2024", score: 0, pass: 0, participation: 0 },
+        { name: "2025", score: 0, pass: 0, participation: 0 },
+        { name: "2026", score: aggregateScore, pass: aggregatePassPercentage, participation: allStudents.length ? 100 : 0 }
       ]
     };
-  }, [allStudents, aggregateScore, aggregatePassPercentage]);
+
+    if (completedAsms.length === 0) {
+      return defaultData;
+    }
+
+    const calculatedPoints = completedAsms.map(asm => {
+      const sessions = examSessions.filter(es => es.assessmentId === asm.id && es.submittedAt);
+      const totalStudents = allStudents.length || asm.assignedCount || 1;
+      
+      let totalScore = 0;
+      let passCount = 0;
+      const participants = sessions.length;
+
+      sessions.forEach(session => {
+        let sessionCodes: Record<string, string> = {};
+        if (session.codeSubmissions) {
+          try {
+            sessionCodes = JSON.parse(session.codeSubmissions);
+          } catch (e) {}
+        }
+
+        let questionIds: string[] = [];
+        try {
+          questionIds = session.questionOrder ? JSON.parse(session.questionOrder) : ["15", "21", "9", "8", "18"];
+        } catch (e) {
+          questionIds = ["15", "21", "9", "8", "18"];
+        }
+
+        let sessionScore = 0;
+        questionIds.forEach((id, index) => {
+          const q = allQuestions.find(qu => qu.id === id) || {
+            id,
+            title: id === "15" ? "Count of Even and Odd Numbers" :
+                   id === "21" ? "Remove Duplicate Characters" :
+                   id === "9" ? "Mirror Word Check" :
+                   id === "8" ? "Character Frequency Winner" :
+                   id === "18" ? "Count and Sum of Positive and Negative Numbers" : `Question ${index + 1}`,
+            marks: 10
+          };
+          const localCode = sessionCodes[q.id || ""];
+          if (localCode) {
+            const isCorrect = isCodeCorrect(q.title || "", localCode);
+            if (isCorrect) {
+              sessionScore += (q.marks || 10);
+            }
+          }
+        });
+
+        const scorePct = (sessionScore / 50) * 100;
+        totalScore += scorePct;
+        if (scorePct >= 50) {
+          passCount++;
+        }
+      });
+
+      const avgScore = participants > 0 ? Math.round(totalScore / participants) : 0;
+      const passRate = participants > 0 ? Math.round((passCount / participants) * 100) : 0;
+      const participationRate = Math.min(100, Math.round((participants / totalStudents) * 100));
+
+      return {
+        name: asm.subject || asm.name.substring(0, 6),
+        score: avgScore,
+        pass: passRate,
+        participation: participationRate
+      };
+    });
+
+    // Make sure we have exactly 4 points to prevent layout break in the SVG
+    while (calculatedPoints.length < 4) {
+      calculatedPoints.unshift({
+        name: `Prev-${4 - calculatedPoints.length}`,
+        score: 0,
+        pass: 0,
+        participation: 0
+      });
+    }
+
+    // Keep only the latest 4 points if there are more
+    const finalPoints = calculatedPoints.slice(-4);
+
+    return {
+      Weekly: finalPoints,
+      Monthly: finalPoints,
+      Semester: finalPoints,
+      Yearly: finalPoints
+    };
+  }, [allAssessments, examSessions, allStudents, allQuestions, aggregateScore, aggregatePassPercentage]);
 
   // Executing document exports
   const handleExport = (format: "PDF" | "Excel" | "CSV") => {
@@ -370,11 +550,7 @@ export default function AnalyticsDashboardView({
     csvContent += "STUDENT LEADERBOARD PERFORMANCE\n";
     csvContent += "Rank,Roll Number,Student Name,Department,Grader Score (out of 100)\n";
     
-    const listToExport = topStudents.length > 0 ? topStudents : [
-      { rank: 1, roll: "22CSE102", name: "Aditya Verma", dept: "CSE", score: 96 },
-      { rank: 2, roll: "22CSE104", name: "Aravind Swaminathan", dept: "CSE", score: 84 },
-      { rank: 3, roll: "22ECE012", name: "Anjali Rao", dept: "ECE", score: 76 }
-    ];
+    const listToExport = topStudents;
 
     listToExport.forEach(st => {
       csvContent += `"${st.rank}","${st.roll}","${st.name}","${st.dept}","${st.score}"\n`;
@@ -386,10 +562,7 @@ export default function AnalyticsDashboardView({
     csvContent += "DEPARTMENTAL OUTCOME COMPARISON\n";
     csvContent += "Department Name,Average Score,Pass Rate,Participation Rate\n";
     
-    const deptsToExport = deptData.length > 0 ? deptData : [
-      { name: "CSE", score: 82.5, pass: 95.6, participation: 98.4 },
-      { name: "ECE", score: 74.2, pass: 89.1, participation: 94.2 }
-    ];
+    const deptsToExport = deptData;
 
     deptsToExport.forEach(d => {
       csvContent += `"${d.name}","${d.score}%","${d.pass}%","${d.participation}%"\n`;
@@ -401,10 +574,7 @@ export default function AnalyticsDashboardView({
     csvContent += "PROGRAMMING TOPIC MASTERY INDEX\n";
     csvContent += "Topic,Attempts,Success Rate,Average Score (out of 10)\n";
 
-    const topicsToExport = topicData.length > 0 ? topicData : [
-      { name: "Binary Trees", attempts: 154, successRate: 76.5, avgScore: 7.6 },
-      { name: "Dynamic Programming", attempts: 128, successRate: 58.2, avgScore: 5.8 }
-    ];
+    const topicsToExport = topicData;
 
     topicsToExport.forEach(t => {
       csvContent += `"${t.name}","${t.attempts} runs","${t.successRate}%","${t.avgScore}"\n`;
@@ -430,63 +600,57 @@ export default function AnalyticsDashboardView({
     <div className="space-y-6 font-sans antialiased text-xs text-slate-800">
       
       {/* 1. Header Toolbar (Hidden in Print) */}
-      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-white border border-slate-200 p-5 rounded-lg shadow-2xs no-print">
+      <div className="flex flex-col xl:flex-row xl:items-center justify-between gap-4 bg-slate-900 border border-slate-800 p-6 rounded-xl shadow-lg text-white no-print">
         <div className="space-y-1">
-          <h2 className="text-base font-black text-slate-900 uppercase tracking-tight flex items-center gap-2">
-            <Activity className="w-5 h-5 text-blue-600 animate-pulse" /> Platform Analytics Intelligence
+          <h2 className="text-base font-black text-white uppercase tracking-tight flex items-center gap-2">
+            <Activity className="w-5 h-5 text-blue-400 animate-pulse" /> Platform Analytics Intelligence
           </h2>
-          <p className="text-slate-500 text-[11px]">
+          <p className="text-slate-400 text-[11px]">
             Real-time grader compilations, student outcome gaps, and cognitive topic mastery trackers.
           </p>
         </div>
 
         {/* Dispatch Controls */}
         <div className="flex flex-wrap items-center gap-3">
-          
-
-
-
-
           {/* Export tools */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-1.5">
             <button 
               onClick={() => handleExport("CSV")}
-              className="bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold px-2.5 py-1.5 rounded flex items-center gap-1 transition-colors"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all text-[11.5px]"
             >
               <Download className="w-3.5 h-3.5 text-slate-400" /> CSV
             </button>
             <button 
               onClick={() => handleExport("Excel")}
-              className="bg-slate-800 hover:bg-slate-750 text-slate-200 font-bold px-2.5 py-1.5 rounded flex items-center gap-1 transition-colors"
+              className="bg-slate-800 hover:bg-slate-700 text-slate-200 font-bold px-3 py-2 rounded-lg flex items-center gap-1.5 transition-all text-[11.5px]"
             >
               <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-450" /> Excel
             </button>
             <button 
               onClick={() => handleExport("PDF")}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-3 py-1.5 rounded flex items-center gap-1.5 transition-colors shadow-2xs"
+              className="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-lg flex items-center gap-2 transition-all shadow-md text-[11.5px]"
             >
               <Download className="w-3.5 h-3.5" /> Export PDF
             </button>
           </div>
-
         </div>
       </div>
 
       {/* 2. Active Filters Bar (Hidden in Empty State) */}
       {!isEmptyState && (
-        <div className="bg-slate-100 border border-slate-200 px-5 py-3.5 rounded-lg flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase no-print">
-          <div className="flex items-center gap-1.5 text-slate-500">
-            <Filter className="w-3.5 h-3.5" /> Filters:
+        <div className="bg-slate-50 border border-slate-200 px-5 py-4 rounded-xl flex flex-wrap items-center gap-4 text-[10px] font-bold uppercase no-print shadow-2xs">
+          <div className="flex items-center gap-1.5 text-slate-550">
+            <Filter className="w-3.5 h-3.5 text-slate-400" /> Filters:
           </div>
 
           {/* Department Selection */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">Dept:</span>
+            <span className="text-slate-450">Dept:</span>
             <select 
               value={deptFilter} 
               onChange={(e) => setDeptFilter(e.target.value)}
               disabled={currentRole === "Faculty" || currentRole === "HOD"}
-              className="bg-white border border-slate-200 px-2.5 py-1 rounded text-slate-750 font-bold disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-750 font-bold disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer hover:border-slate-350 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Departments</option>
               <option value="CSE">CSE</option>
@@ -499,11 +663,11 @@ export default function AnalyticsDashboardView({
 
           {/* Batch Selection */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">Batch:</span>
+            <span className="text-slate-455">Batch:</span>
             <select 
               value={batchFilter} 
               onChange={(e) => setBatchFilter(e.target.value)}
-              className="bg-white border border-slate-200 px-2.5 py-1 rounded text-slate-750 font-bold cursor-pointer"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-750 font-bold cursor-pointer hover:border-slate-350 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Batches</option>
               <option value="2026">2026 Graduating</option>
@@ -514,12 +678,12 @@ export default function AnalyticsDashboardView({
 
           {/* Section Selection */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">Section:</span>
+            <span className="text-slate-455">Section:</span>
             <select 
               value={sectionFilter} 
               onChange={(e) => setSectionFilter(e.target.value)}
               disabled={currentRole === "Faculty"}
-              className="bg-white border border-slate-200 px-2.5 py-1 rounded text-slate-750 font-bold disabled:bg-slate-50 disabled:text-slate-400 cursor-pointer"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-750 font-bold disabled:bg-slate-100 disabled:text-slate-400 cursor-pointer hover:border-slate-350 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Sections</option>
               <option value="A">Section A</option>
@@ -530,11 +694,11 @@ export default function AnalyticsDashboardView({
 
           {/* Semester Selection */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">Semester:</span>
+            <span className="text-slate-455">Semester:</span>
             <select 
               value={semesterFilter} 
               onChange={(e) => setSemesterFilter(e.target.value)}
-              className="bg-white border border-slate-200 px-2.5 py-1 rounded text-slate-750 font-bold cursor-pointer"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-750 font-bold cursor-pointer hover:border-slate-350 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Semesters</option>
               <option value="1">Semester 1</option>
@@ -546,11 +710,11 @@ export default function AnalyticsDashboardView({
 
           {/* Assessment Selection */}
           <div className="flex items-center gap-1.5">
-            <span className="text-slate-400">Exam:</span>
+            <span className="text-slate-455">Exam:</span>
             <select 
               value={assessmentFilter} 
               onChange={(e) => setAssessmentFilter(e.target.value)}
-              className="bg-white border border-slate-200 px-2.5 py-1 rounded text-slate-750 font-bold cursor-pointer max-w-[200px]"
+              className="bg-white border border-slate-200 rounded-lg px-3 py-1.5 text-slate-750 font-bold cursor-pointer max-w-[200px] hover:border-slate-350 focus:ring-1 focus:ring-blue-500"
             >
               <option value="all">All Assessments</option>
               {allAssessments.map(a => (
@@ -560,13 +724,13 @@ export default function AnalyticsDashboardView({
           </div>
           
           <div className="ml-auto flex items-center gap-2">
-            <span className="text-slate-400">Timeframe:</span>
+            <span className="text-slate-455">Timeframe:</span>
             <div className="flex bg-white rounded border border-slate-200 p-0.5">
               {(["Weekly", "Monthly", "Semester", "Yearly"] as const).map(tr => (
                 <button
                   key={tr}
                   onClick={() => setTimeRange(tr)}
-                  className={`px-2.5 py-0.5 rounded text-[9px] font-bold ${
+                  className={`px-3 py-1 rounded text-[9px] font-bold transition-all ${
                     timeRange === tr 
                       ? "bg-slate-900 text-white shadow-2xs" 
                       : "text-slate-500 hover:text-slate-800"
@@ -623,14 +787,20 @@ export default function AnalyticsDashboardView({
           {/* 3. Top Metrics Overview Grid */}
           <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
             
-            <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
-                  Total Audited Candidates
-                </span>
-                <span className="text-2xl font-black text-slate-900 mt-1 block">
-                  {activeStudentsCount}
-                </span>
+            {/* Card 1: Total Audited Candidates */}
+            <div className="bg-white p-4 border-l-4 border-l-blue-600 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between hover:shadow-xs hover:scale-101 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
+                    Total Audited Candidates
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">
+                    {activeStudentsCount}
+                  </span>
+                </div>
+                <div className="bg-blue-50 text-blue-600 p-1.5 rounded">
+                  <Users className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="text-[10px] text-slate-450 font-medium mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                 <span>Enrolled roster</span>
@@ -638,14 +808,20 @@ export default function AnalyticsDashboardView({
               </div>
             </div>
 
-            <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
-                  Assessments Completed
-                </span>
-                <span className="text-2xl font-black text-slate-900 mt-1 block">
-                  {completedAssessmentsCount}
-                </span>
+            {/* Card 2: Assessments Completed */}
+            <div className="bg-white p-4 border-l-4 border-l-emerald-600 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between hover:shadow-xs hover:scale-101 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-slate-455 font-bold uppercase tracking-wider text-[8px] block">
+                    Assessments Completed
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block">
+                    {completedAssessmentsCount}
+                  </span>
+                </div>
+                <div className="bg-emerald-50 text-emerald-600 p-1.5 rounded">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="text-[10px] text-slate-450 font-medium mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                 <span>Sandbox sessions</span>
@@ -653,14 +829,20 @@ export default function AnalyticsDashboardView({
               </div>
             </div>
 
-            <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
-                  Average score
-                </span>
-                <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
-                  {allStudents.length ? `${aggregateScore}%` : "0.0%"}
-                </span>
+            {/* Card 3: Average Score */}
+            <div className="bg-white p-4 border-l-4 border-l-amber-500 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between hover:shadow-xs hover:scale-101 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-slate-455 font-bold uppercase tracking-wider text-[8px] block">
+                    Average score
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
+                    {allStudents.length ? `${aggregateScore}%` : "0.0%"}
+                  </span>
+                </div>
+                <div className="bg-amber-50 text-amber-600 p-1.5 rounded">
+                  <TrendingUp className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="text-[10px] text-slate-450 font-medium mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                 <span>Out of 100 max</span>
@@ -668,14 +850,20 @@ export default function AnalyticsDashboardView({
               </div>
             </div>
 
-            <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
-              <div>
-                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
-                  Pass Percentage
-                </span>
-                <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
-                  {allStudents.length ? `${aggregatePassPercentage}%` : "0.0%"}
-                </span>
+            {/* Card 4: Pass Percentage */}
+            <div className="bg-white p-4 border-l-4 border-l-violet-600 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between hover:shadow-xs hover:scale-101 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-slate-455 font-bold uppercase tracking-wider text-[8px] block">
+                    Pass Percentage
+                  </span>
+                  <span className="text-2xl font-black text-slate-900 mt-1 block font-mono">
+                    {allStudents.length ? `${aggregatePassPercentage}%` : "0.0%"}
+                  </span>
+                </div>
+                <div className="bg-violet-50 text-violet-600 p-1.5 rounded">
+                  <Award className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="text-[10px] text-slate-450 font-medium mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                 <span>Pass threshold 50%</span>
@@ -683,14 +871,20 @@ export default function AnalyticsDashboardView({
               </div>
             </div>
 
-            <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between col-span-2 md:col-span-1">
-              <div>
-                <span className="text-slate-400 font-bold uppercase tracking-wider text-[8px] block">
-                  Active Proctor Exams
-                </span>
-                <span className="text-2xl font-black text-blue-700 mt-1 block">
-                  {activeAssessmentsCount}
-                </span>
+            {/* Card 5: Active Proctor Exams */}
+            <div className="bg-white p-4 border-l-4 border-l-rose-600 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between col-span-2 md:col-span-1 hover:shadow-xs hover:scale-101 transition-all">
+              <div className="flex justify-between items-start">
+                <div>
+                  <span className="text-slate-455 font-bold uppercase tracking-wider text-[8px] block">
+                    Active Proctor Exams
+                  </span>
+                  <span className="text-2xl font-black text-rose-600 mt-1 block">
+                    {activeAssessmentsCount}
+                  </span>
+                </div>
+                <div className="bg-rose-50 text-rose-600 p-1.5 rounded">
+                  <Activity className="w-3.5 h-3.5" />
+                </div>
               </div>
               <div className="text-[10px] text-slate-450 font-medium mt-3 border-t border-slate-100 pt-2 flex items-center justify-between">
                 <span>Live compiler nodes</span>
