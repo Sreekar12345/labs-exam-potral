@@ -5,6 +5,8 @@ export interface Student {
   roll: string;
   name: string;
   email: string;
+  mobile?: string;
+  collegeName?: string;
   dept: string;
   year: string;
   section: string;
@@ -97,6 +99,7 @@ export interface ReportLog {
   exportType: "PDF" | "CSV" | "Excel";
   downloadCount: number;
   assessmentId?: string;
+  studentRoll?: string;
 }
 
 // Default Seed Data (used as static fallback before db sync completes)

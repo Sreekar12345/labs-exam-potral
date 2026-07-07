@@ -13,6 +13,8 @@ export async function GET() {
       roll: s.roll,
       name: s.name,
       email: s.email,
+      mobile: s.mobile || "",
+      collegeName: s.collegeName || "Gouthami Institute of Technology and Management for Women",
       dept: s.dept,
       year: s.year,
       section: s.section,

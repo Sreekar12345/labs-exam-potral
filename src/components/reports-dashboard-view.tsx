@@ -62,11 +62,15 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
   // Empty State Toggle for Demo Previewing
   const [emptyStateMode, setEmptyStateMode] = useState<"none" | "no-reports" | "no-data">("none");
 
+  // List of students resolved from database/localStorage
+  const [students, setStudents] = useState<Student[]>([]);
+
   // Scheduling Form State
   const [scheduleForm, setScheduleForm] = useState({
     title: "",
     category: "Assessment",
     assessmentId: "",
+    studentRoll: "",
     frequency: "once",
     emailList: "",
     autoGenerate: false
@@ -75,13 +79,47 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
   // Load storage states
   useEffect(() => {
     setReports(loadReports());
-    const asms = loadAssessments();
-    setAssessments(asms.filter(a => {
+    const localAsms = loadAssessments();
+    setAssessments(localAsms.filter(a => {
       const dynamicStatus = getAssessmentStatus(a, "", []);
       return dynamicStatus === "Completed" || dynamicStatus === "Active" || dynamicStatus === "Upcoming";
     }));
-    setStudentCount(loadStudents().length);
+    
+    const localStudents = loadStudents();
+    setStudents(localStudents);
+    setStudentCount(localStudents.length);
     setFacultyName(loadFacultyProfile().fullName);
+
+    // Fetch fresh database records for complete mapping
+    fetch("/api/sync")
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success" && data.students) {
+          const dbStudents: Student[] = data.students.map((s: any) => ({
+            id: s.id,
+            roll: s.roll,
+            name: s.name,
+            email: s.email,
+            mobile: s.mobile || "",
+            collegeName: s.collegeName || "Gouthami Institute of Technology and Management for Women",
+            dept: s.dept,
+            year: s.year,
+            section: s.section,
+            status: s.status || "Active",
+            lastLogin: s.lastLogin || ""
+          }));
+
+          // Merge: DB students take priority
+          const rollSet = new Set(dbStudents.map(s => s.roll));
+          const mergedStudents = [
+            ...dbStudents,
+            ...localStudents.filter(s => !rollSet.has(s.roll))
+          ];
+          setStudents(mergedStudents);
+          setStudentCount(mergedStudents.length);
+        }
+      })
+      .catch(err => console.error("Dashboard database sync error:", err));
   }, []);
 
   // Handler: Generate Custom Report Now
@@ -100,7 +138,8 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
       generatedBy: facultyName || "Faculty HOD",
       exportType: "PDF",
       downloadCount: 0,
-      assessmentId: scheduleForm.assessmentId || undefined
+      assessmentId: scheduleForm.assessmentId || undefined,
+      studentRoll: scheduleForm.category === "Student" ? (scheduleForm.studentRoll || "238U1A0419") : undefined
     };
 
     const updated = [newReport, ...reports];
@@ -110,7 +149,8 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
     
     // Automatically navigate to view details
     if (scheduleForm.category === "Student") {
-      router.push(`/faculty/reports/student-scorecard/238U1A0419/${scheduleForm.assessmentId || "5"}`);
+      const roll = scheduleForm.studentRoll || "238U1A0419";
+      router.push(`/faculty/reports/student-scorecard/${roll}/${scheduleForm.assessmentId || "5"}`);
     } else {
       router.push(`/faculty/reports/${newReport.id}`);
     }
@@ -120,6 +160,7 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
       title: "",
       category: "Assessment",
       assessmentId: "",
+      studentRoll: "",
       frequency: "once",
       emailList: "",
       autoGenerate: false
@@ -433,7 +474,7 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
                           <button 
                             onClick={() => {
                               if (rep.category === "Student") {
-                                router.push(`/faculty/reports/student-scorecard/238U1A0419/${rep.assessmentId || "5"}`);
+                                router.push(`/faculty/reports/student-scorecard/${rep.studentRoll || "238U1A0419"}/${rep.assessmentId || "5"}`);
                               } else {
                                 router.push(`/faculty/reports/${rep.id}`);
                               }
@@ -464,7 +505,7 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
                           <button 
                             onClick={() => {
                               if (rep.category === "Student") {
-                                router.push(`/faculty/reports/student-scorecard/238U1A0419/${rep.assessmentId || "5"}`);
+                                router.push(`/faculty/reports/student-scorecard/${rep.studentRoll || "238U1A0419"}/${rep.assessmentId || "5"}`);
                               } else {
                                 router.push(`/faculty/reports/${rep.id}`);
                               }
@@ -584,6 +625,25 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
                   </select>
                 </div>
               </div>
+
+              {scheduleForm.category === "Student" && (
+                <div className="space-y-1">
+                  <label className="block font-bold text-slate-650">Select Student *</label>
+                  <select 
+                    required
+                    value={scheduleForm.studentRoll}
+                    onChange={(e) => setScheduleForm({ ...scheduleForm, studentRoll: e.target.value })}
+                    className="w-full text-slate-900 border border-slate-250 rounded px-2.5 py-1.5 bg-white focus:outline-hidden"
+                  >
+                    <option value="">-- Choose Student Candidate --</option>
+                    {students.map(s => (
+                      <option key={s.roll} value={s.roll}>
+                        {s.name} ({s.roll}) - {s.dept}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
 
               <div className="space-y-1 bg-slate-50 border border-slate-150 p-3 rounded">
                 <p className="font-extrabold text-slate-800 text-[10px] uppercase">PDF Template Design Specifications:</p>

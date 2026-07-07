@@ -294,13 +294,74 @@ export default function ReportDetailsPage({ params }: PageProps) {
       });
     }
 
-    setStudents(loadStudents());
+    // Load local data first as fallback
+    const localStudents = loadStudents();
+    const localSessions = loadExamSessions();
+    setStudents(localStudents);
     setAssessments(loadAssessments());
     setQuestions(loadQuestions());
     setFaculty(loadFacultyProfile());
-    setExamSessions(loadExamSessions());
+    setExamSessions(localSessions);
     setGeneratedTime(new Date().toLocaleString());
-    setIsLoading(false);
+
+    // Fetch fresh data from database to merge with localStorage
+    fetch("/api/sync")
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          // Merge database students with localStorage students (database takes priority)
+          const dbStudents: Student[] = (data.students || []).map((s: any) => ({
+            id: s.id,
+            roll: s.roll,
+            name: s.name,
+            email: s.email,
+            mobile: s.mobile || "",
+            collegeName: s.collegeName || "Gouthami Institute of Technology and Management for Women",
+            dept: s.dept,
+            year: s.year,
+            section: s.section,
+            status: s.status || "Active",
+            lastLogin: s.lastLogin || ""
+          }));
+
+          // Build a merged list: DB students take priority, then add any localStorage-only students
+          const rollSet = new Set(dbStudents.map(s => s.roll));
+          const mergedStudents = [
+            ...dbStudents,
+            ...localStudents.filter(s => !rollSet.has(s.roll))
+          ];
+          setStudents(mergedStudents);
+
+          // Merge exam sessions from database
+          if (data.examSessions && data.examSessions.length > 0) {
+            const dbSessions: ExamSession[] = data.examSessions.map((es: any) => ({
+              id: es.id,
+              studentRoll: es.studentRoll,
+              assessmentId: es.assessmentId,
+              questionOrder: es.questionOrder,
+              startedAt: es.startedAt,
+              submittedAt: es.submittedAt,
+              codeSubmissions: es.codeSubmissions
+            }));
+            const sessionIdSet = new Set(dbSessions.map(s => s.id));
+            const mergedSessions = [
+              ...dbSessions,
+              ...localSessions.filter(s => !sessionIdSet.has(s.id))
+            ];
+            setExamSessions(mergedSessions);
+          }
+
+          // Update assessments and questions from DB too
+          if (data.assessments && data.assessments.length > 0) {
+            setAssessments(data.assessments);
+          }
+          if (data.questions && data.questions.length > 0) {
+            setQuestions(data.questions);
+          }
+        }
+      })
+      .catch(err => console.error("Report data sync error:", err))
+      .finally(() => setIsLoading(false));
   }, [reportId]);
 
   // Dynamic primary assessment selection

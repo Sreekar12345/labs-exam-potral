@@ -256,103 +256,132 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Load dynamic data
-    const studentsList = loadStudents();
-    const assessmentsList = loadAssessments();
-    const questionsList = loadQuestions();
-    const facultyProfile = loadFacultyProfile();
-    const sessionsList = loadExamSessions();
+    // Load local data first as immediate fallback
+    const localStudentsList = loadStudents();
+    const localAssessmentsList = loadAssessments();
+    const localQuestionsList = loadQuestions();
+    const localFacultyProfile = loadFacultyProfile();
+    const localSessionsList = loadExamSessions();
 
-    let foundStudent = studentsList.find(s => s.roll === studentRoll);
-    if (studentRoll === "238U1A0419") {
-      foundStudent = {
-        id: "sree-koneti-id",
-        roll: "238U1A0419",
-        name: "Sree Koneti",
-        email: "sree.koneti@gouthamitmw.edu",
-        dept: "B.Tech ECE",
-        year: "3rd Year",
-        section: "A",
-        status: "Active" as const,
-        lastLogin: ""
-      };
-    } else if (!foundStudent) {
-      foundStudent = {
-        id: "demo-stud-id",
-        roll: studentRoll || "CANDIDATE",
-        name: "Student Candidate",
-        email: `${(studentRoll || "student").toLowerCase()}@gouthamitmw.edu`,
-        dept: "B.Tech CSE",
-        year: "3rd Year",
-        section: "A",
-        status: "Active" as const,
-        lastLogin: ""
-      };
-    }
-    setStudent(foundStudent);
+    // Helper to resolve data from a given student/session/assessment/questions set
+    const resolveAndSet = (
+      studentsList: Student[],
+      assessmentsList: Assessment[],
+      questionsList: Question[],
+      sessionsList: ExamSession[]
+    ) => {
+      // 1. Find student by roll number
+      let foundStudent = studentsList.find(s => s.roll === studentRoll);
+      if (!foundStudent) {
+        // Construct a minimal placeholder from the roll
+        foundStudent = {
+          id: "stud-" + studentRoll,
+          roll: studentRoll || "CANDIDATE",
+          name: "Student " + (studentRoll || "Candidate"),
+          email: `${(studentRoll || "student").toLowerCase()}@gouthamitmw.edu`,
+          dept: "B.Tech CSE",
+          year: "3rd Year",
+          section: "A",
+          status: "Active" as const,
+          lastLogin: ""
+        };
+      }
+      setStudent(foundStudent);
 
-    // 2. Resolve assessment (with fallback for demo Python Lab Assessment)
-    const foundAssessment = assessmentsList.find(a => a.id === assessmentId) || {
-      id: assessmentId || "5",
-      name: "Python Lab Assessment",
-      subject: "IT102",
-      duration: 120,
-      questionsCount: 5,
-      assignedCount: 45,
-      status: "Completed" as const,
-      createdDate: "2026-06-20",
-      date: "June 21, 2026"
+      // 2. Resolve assessment
+      const foundAssessment = assessmentsList.find(a => a.id === assessmentId) || {
+        id: assessmentId || "5",
+        name: "Lab Assessment",
+        subject: "IT102",
+        duration: 120,
+        questionsCount: 5,
+        assignedCount: 45,
+        status: "Completed" as const,
+        createdDate: "2026-06-20",
+        date: "June 21, 2026"
+      };
+      setAssessment(foundAssessment);
+
+      // 3. Resolve session from database/localStorage
+      let foundSession = sessionsList.find(
+        s => s.studentRoll === foundStudent.roll && s.assessmentId === foundAssessment.id
+      );
+      if (!foundSession) {
+        foundSession = {
+          id: "sess_" + foundStudent.roll,
+          studentRoll: foundStudent.roll,
+          assessmentId: foundAssessment.id,
+          questionOrder: JSON.stringify(["15", "21", "9", "8", "18"]),
+          startedAt: new Date(Date.now() - 3600 * 1000).toISOString(),
+          submittedAt: new Date().toISOString()
+        };
+      }
+      setSession(foundSession);
+
+      // 4. Set faculty and questions
+      setFaculty({
+        collegeName: localFacultyProfile.collegeName || "Gouthami Institute of Technology and Management for Women",
+        department: localFacultyProfile.department || "CSE",
+        fullName: localFacultyProfile.fullName || "Dr. Ramesh Sharma"
+      });
+      setAllQuestions(questionsList);
+      setGeneratedTime(formatDate(new Date()));
     };
-    setAssessment(foundAssessment);
 
-    // 3. Resolve session (with fallback)
-    let foundSession = sessionsList.find(
-      s => s.studentRoll === foundStudent.roll && s.assessmentId === foundAssessment.id
-    );
-    if (foundStudent.roll === "238U1A0419") {
-      const sreeSubmissions = {
-        "15": `n=int(input())\nx=input().split()\na=[]\nfor i in x:\n    a.append(int(i))\necount=0\nocount=0\nfor i in a:\n    if i%2==0:\n        ecount+=1\n    else:\n        ocount+=1\nprint("Even Count",ecount)\nprint("Odd Count",ocount)`,
-        "9": `s=input()\nn=len(s)\nf=s[0:n//2]\nse=s[n//2:]\nse=se[::-1]\nif f==se:\n    print("Mirror Word")\nelse:\n    print("No")`
-      };
-      
-      const sreeMetadata = {
-        submissions: sreeSubmissions,
-        warningsCount: 0,
-        warningsLogs: [],
-        lastActivity: "12:56 PM - Exam Submitted",
-        status: "Submitted"
-      };
+    // Set local data immediately
+    resolveAndSet(localStudentsList, localAssessmentsList, localQuestionsList, localSessionsList);
 
-      foundSession = {
-        id: "sess_238U1A0419",
-        studentRoll: "238U1A0419",
-        assessmentId: foundAssessment.id,
-        questionOrder: JSON.stringify(["15", "21", "9", "8", "18"]),
-        startedAt: new Date("2026-06-21T12:46:05").toISOString(),
-        submittedAt: new Date("2026-06-21T12:56:02").toISOString(),
-        codeSubmissions: JSON.stringify(sreeMetadata)
-      };
-    } else if (!foundSession) {
-      foundSession = {
-        id: "sess_" + foundStudent.roll,
-        studentRoll: foundStudent.roll,
-        assessmentId: foundAssessment.id,
-        questionOrder: JSON.stringify(["15", "21", "9", "8", "18"]),
-        startedAt: new Date(Date.now() - 3600 * 1000).toISOString(),
-        submittedAt: new Date().toISOString()
-      };
-    }
-    setSession(foundSession);
+    // Then fetch fresh data from database and re-resolve
+    fetch("/api/sync")
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          const dbStudents: Student[] = (data.students || []).map((s: any) => ({
+            id: s.id,
+            roll: s.roll,
+            name: s.name,
+            email: s.email,
+            mobile: s.mobile || "",
+            collegeName: s.collegeName || "Gouthami Institute of Technology and Management for Women",
+            dept: s.dept,
+            year: s.year,
+            section: s.section,
+            status: s.status || "Active",
+            lastLogin: s.lastLogin || ""
+          }));
 
-    // 4. Set faculty and questions
-    setFaculty({
-      collegeName: facultyProfile.collegeName || "Gouthami Institute of Technology and Management for Women",
-      department: facultyProfile.department || "CSE",
-      fullName: facultyProfile.fullName || "Dr. Ramesh Sharma"
-    });
-    setAllQuestions(questionsList);
-    setGeneratedTime(formatDate(new Date()));
-    setIsLoading(false);
+          // Merge: DB students take priority
+          const rollSet = new Set(dbStudents.map(s => s.roll));
+          const mergedStudents = [
+            ...dbStudents,
+            ...localStudentsList.filter(s => !rollSet.has(s.roll))
+          ];
+
+          // Merge exam sessions
+          const dbSessions: ExamSession[] = (data.examSessions || []).map((es: any) => ({
+            id: es.id,
+            studentRoll: es.studentRoll,
+            assessmentId: es.assessmentId,
+            questionOrder: es.questionOrder,
+            startedAt: es.startedAt,
+            submittedAt: es.submittedAt,
+            codeSubmissions: es.codeSubmissions
+          }));
+          const sessionIdSet = new Set(dbSessions.map(s => s.id));
+          const mergedSessions = [
+            ...dbSessions,
+            ...localSessionsList.filter(s => !sessionIdSet.has(s.id))
+          ];
+
+          const mergedAssessments = (data.assessments && data.assessments.length > 0) ? data.assessments : localAssessmentsList;
+          const mergedQuestions = (data.questions && data.questions.length > 0) ? data.questions : localQuestionsList;
+
+          // Re-resolve with merged database data
+          resolveAndSet(mergedStudents, mergedAssessments, mergedQuestions, mergedSessions);
+        }
+      })
+      .catch(err => console.error("Scorecard data sync error:", err))
+      .finally(() => setIsLoading(false));
   }, [studentRoll, assessmentId]);
 
   const studentData = React.useMemo(() => {
