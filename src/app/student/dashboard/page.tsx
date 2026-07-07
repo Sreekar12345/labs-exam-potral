@@ -241,7 +241,7 @@ export default function StudentDashboard() {
         </div>
 
         {/* Statistics Dashboard row */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
             <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Total Assessments Assigned</p>
             <p className="text-2xl font-extrabold text-slate-950 mt-1">{totalAssigned}</p>
@@ -253,10 +253,6 @@ export default function StudentDashboard() {
           <div className="bg-white p-4 border border-slate-200 rounded-lg shadow-2xs flex flex-col justify-between">
             <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Completed Assessments</p>
             <p className="text-2xl font-extrabold text-emerald-800 mt-1">{completedCount}</p>
-          </div>
-          <div className="bg-slate-900 text-white p-4 border border-slate-950 rounded-lg shadow-2xs flex flex-col justify-between">
-            <p className="text-slate-400 font-bold uppercase text-[9px] tracking-wider">Historical Average Score</p>
-            <p className="text-2xl font-extrabold text-white mt-1 font-mono">{averageScore}</p>
           </div>
         </div>
 
