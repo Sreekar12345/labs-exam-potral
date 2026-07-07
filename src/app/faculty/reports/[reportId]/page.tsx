@@ -1081,137 +1081,109 @@ export default function ReportDetailsPage({ params }: PageProps) {
             })}
           </div>
         ) : (
-          <div className="bg-white max-w-[800px] w-full p-8 md:p-12 border border-slate-200 shadow-lg print-shadow-none print-border-none flex flex-col justify-between min-h-[1050px]">
+          <div className="bg-white max-w-[800px] w-full p-8 md:p-12 border border-slate-200 shadow-lg print-shadow-none print-border-none flex flex-col justify-between min-h-[1050px] text-slate-900 scorecard-page">
             
-            <div className="space-y-8">
-              {/* 1. PDF Header Area */}
-              <div className="flex items-start justify-between border-b-2 border-slate-900 pb-5">
-                <div className="flex items-center gap-4">
-                  {/* SVG Institutional Emblem Logo */}
-                  <div className="bg-slate-900 text-white p-3 rounded-lg border border-slate-850 flex items-center justify-center shrink-0">
-                    <Shield className="w-8 h-8 text-blue-500 fill-blue-500/10" />
-                  </div>
-                  <div>
-                    <h2 className="font-extrabold text-sm tracking-tight text-slate-955 uppercase leading-snug">
-                      {(faculty.collegeName || "Gouthami Institute of Technology and Management for Women").toUpperCase()}
-                    </h2>
-                    <p className="text-[10px] text-slate-500 uppercase tracking-widest font-bold">
-                      Department of {faculty.department}
-                    </p>
-                    <p className="text-[9px] text-slate-400 mt-0.5">
-                      Accreditation Auditing & Quality Standard Folder outcomes
-                    </p>
-                  </div>
-                </div>
-
-                <div className="text-right font-mono text-[9px] text-slate-450 uppercase leading-normal">
-                  <p>Doc ID: <span className="font-bold text-slate-900">{report.id.toUpperCase()}</span></p>
-                  <p>Run: {report.generatedDate}</p>
-                  <p>Type: {report.category}</p>
-                </div>
-              </div>
-
-              {/* Title / Description */}
-              <div className="text-center space-y-1.5">
-                <h3 className="text-base font-black text-slate-950 uppercase tracking-tight">
-                  {report.name.toUpperCase()}
-                </h3>
-                <p className="text-[10px] text-slate-500 font-medium italic max-w-xl mx-auto">
-                  This report document lists internal evaluation data compiled from secure sandboxed programming assessments. Content represents verified student compiler sessions.
+            <div className="space-y-6">
+              
+              {/* Header section matching Gouthami screenshot branding */}
+              <div className="text-center space-y-1">
+                <h2 className="font-extrabold text-sm tracking-tight text-slate-900 uppercase leading-snug">
+                  {faculty.collegeName || "Gouthami Institute of Technology and Management for Women"}
+                </h2>
+                <p className="text-[10px] text-slate-700 font-medium">
+                  {report.name} – Outcomes Report
                 </p>
+                <div className="h-[1px] bg-slate-200 w-full mt-3"></div>
               </div>
 
               {/* ========================================================================= */}
               {/* TEMPLATE A: ASSESSMENT REPORT */}
               {(report.category === "Assessment" || report.category === "Semester") && (
                 <div className="space-y-6">
-                  {/* Parameters */}
-                  <div className="bg-slate-50 p-4 border border-slate-200 rounded-lg space-y-3">
-                    <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450 border-b border-slate-200 pb-1.5">
-                      1. Assessment Parameters
-                    </h4>
-                    <div className="grid grid-cols-2 md:grid-cols-3 gap-y-3 gap-x-6 text-[10px]">
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Evaluation Name:</span>
-                        <span className="font-bold text-slate-900">{primaryAssessment.name}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Subject Code:</span>
-                        <span className="font-bold text-slate-900 font-mono">{primaryAssessment.subject}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Evaluation Date:</span>
-                        <span className="font-bold text-slate-900 font-mono">{primaryAssessment.date}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Duration limit:</span>
-                        <span className="font-bold text-slate-900 font-mono">{primaryAssessment.duration} minutes</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Assigned Candidates:</span>
-                        <span className="font-bold text-slate-900 font-mono">{dynamicSummary.totalStudentsCount} students</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Assessment Marks:</span>
-                        <span className="font-bold text-slate-900 font-mono">50 Points (max)</span>
-                      </div>
-                    </div>
+                  {/* Centered Parameters table styled exactly like the scorecard details */}
+                  <div className="flex justify-center py-2">
+                    <table className="w-full max-w-sm text-[11px] font-sans text-left">
+                      <tbody>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold w-1/3">Evaluation Name</td>
+                          <td className="py-1.5 font-bold text-slate-950 w-2/3">{primaryAssessment.name}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Subject Code</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{primaryAssessment.subject}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Evaluation Date</td>
+                          <td className="py-1.5 font-bold text-slate-955">{primaryAssessment.date}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Duration Limit</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{primaryAssessment.duration} minutes</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Assigned Candidates</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{dynamicSummary.totalStudentsCount}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Pass Rate</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{dynamicSummary.passRate}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Average Score</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{dynamicSummary.avgScore}</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
 
-                  {/* Summary Metrics */}
-                  <div className="space-y-3">
-                    <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450 pb-0.5">
-                      2. Outcome Summary Metrics
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 font-mono">
-                      <div className="border border-slate-200 p-3 rounded text-center">
-                        <span className="text-slate-455 text-[8px] font-bold block uppercase">Pass Rate</span>
-                        <span className="text-lg font-black text-emerald-850 block mt-1">{dynamicSummary.passRate}</span>
-                      </div>
-                      <div className="border border-slate-200 p-3 rounded text-center">
-                        <span className="text-slate-455 text-[8px] font-bold block uppercase">Avg Score</span>
-                        <span className="text-lg font-black text-slate-900 block mt-1">{dynamicSummary.avgScore}</span>
-                      </div>
-                      <div className="border border-slate-200 p-3 rounded text-center">
-                        <span className="text-slate-455 text-[8px] font-bold block uppercase">Highest</span>
-                        <span className="text-lg font-black text-blue-800 block mt-1">{dynamicSummary.highest}</span>
-                      </div>
-                      <div className="border border-slate-200 p-3 rounded text-center">
-                        <span className="text-slate-455 text-[8px] font-bold block uppercase">Lowest</span>
-                        <span className="text-lg font-black text-rose-800 block mt-1">{dynamicSummary.lowest}</span>
-                      </div>
-                      <div className="border border-slate-200 p-3 rounded text-center">
-                        <span className="text-slate-455 text-[8px] font-bold block uppercase">Submit Rate</span>
-                        <span className="text-lg font-black text-slate-900 block mt-1">{dynamicSummary.submitRate}</span>
-                      </div>
-                    </div>
+                  {/* Section Title */}
+                  <div className="text-center font-bold text-[11px] text-slate-900 tracking-wide uppercase pt-2">
+                    Detailed Student Outcomes
                   </div>
 
-                  {/* Section performance distributions chart */}
-                  <div className="border border-slate-200 p-4 rounded-lg space-y-3">
-                    <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450 flex items-center gap-1 pb-1 border-b border-slate-100">
-                      <Building className="w-3.5 h-3.5 text-slate-400" /> Grade Distribution Analysis
-                    </h4>
-                    
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
-                      <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150">
-                        <span className="text-[8px] font-bold uppercase text-slate-450 block">Excellent (&gt;=45)</span>
-                        <span className="text-sm font-extrabold text-slate-900 block mt-0.5">{dynamicDistributions.excellent.count} ({dynamicDistributions.excellent.pct}%)</span>
-                      </div>
-                      <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150">
-                        <span className="text-[8px] font-bold uppercase text-slate-450 block">Good (35-44)</span>
-                        <span className="text-sm font-extrabold text-slate-900 block mt-0.5">{dynamicDistributions.good.count} ({dynamicDistributions.good.pct}%)</span>
-                      </div>
-                      <div className="bg-slate-50/50 p-2.5 rounded border border-slate-150">
-                        <span className="text-[8px] font-bold uppercase text-slate-450 block">Satisfactory (25-34)</span>
-                        <span className="text-sm font-extrabold text-slate-900 block mt-0.5">{dynamicDistributions.satisfactory.count} ({dynamicDistributions.satisfactory.pct}%)</span>
-                      </div>
-                      <div className="bg-slate-50/50 p-2.5 rounded border border-rose-150 bg-rose-50/10">
-                        <span className="text-[8px] font-bold uppercase text-rose-600 block">At-Risk (&lt;25)</span>
-                        <span className="text-sm font-extrabold text-rose-800 block mt-0.5">{dynamicDistributions.atRisk.count} ({dynamicDistributions.atRisk.pct}%)</span>
-                      </div>
-                    </div>
+                  {/* Clean questions style student roster table */}
+                  <div className="border border-slate-355 rounded-xs overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[10.5px] font-sans">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-900 font-bold uppercase text-[9px] border-b border-slate-350">
+                          <th className="py-2 px-3 w-[20%]">Roll Number</th>
+                          <th className="py-2 px-3 w-[35%]">Student Name</th>
+                          <th className="py-2 px-3 text-center w-[15%]">Status</th>
+                          <th className="py-2 px-3 text-center w-[15%]">Marks</th>
+                          <th className="py-2 px-3 text-center w-[15%]">Appeared</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-300">
+                        {studentsWithScores.map((student) => {
+                          const isSuspended = student.status === "Suspended";
+                          const scoreDisplay = isSuspended ? "0" : (student.score !== null ? student.score : "—");
+                          const statusText = isSuspended ? "FAIL" : (student.score !== null ? (student.score >= 25 ? "PASS" : "FAIL") : "N/A");
+                          const appearedStatus = student.statusStr === "NOT ATTEMPTED" ? "No" : "Yes";
+                          
+                          return (
+                            <tr key={student.id} className="bg-white hover:bg-slate-50/40">
+                              <td className="py-3 px-3 font-semibold text-slate-900 font-mono text-[10px]">
+                                {student.roll}
+                              </td>
+                              <td className="py-3 px-3 text-slate-800 font-bold">
+                                {student.name}
+                              </td>
+                              <td className="py-3 px-3 text-center text-slate-800">
+                                <span className={`font-bold ${statusText === "PASS" ? "text-emerald-700" : statusText === "FAIL" ? "text-rose-700" : "text-slate-500"}`}>
+                                  {statusText}
+                                </span>
+                              </td>
+                              <td className="py-3 px-3 text-center font-bold text-slate-900">
+                                {scoreDisplay} / 50
+                              </td>
+                              <td className="py-3 px-3 text-center text-slate-800">
+                                {appearedStatus}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -1219,34 +1191,32 @@ export default function ReportDetailsPage({ params }: PageProps) {
               {/* ========================================================================= */}
               {/* TEMPLATE C: QUESTION ANALYSIS REPORT */}
               {report.category === "Question" && (
-                <div className="space-y-4">
-                  <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450">
+                <div className="space-y-6">
+                  <div className="text-center font-bold text-[11px] text-slate-900 tracking-wide uppercase pt-2">
                     Question-wise Performance & Error Indices
-                  </h4>
+                  </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left border-collapse text-[10px]">
+                  <div className="border border-slate-355 rounded-xs overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[10.5px] font-sans">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[8px]">
-                          <th className="py-2 px-3">Question Description</th>
-                          <th className="py-2 px-3 text-center">Attempts</th>
-                          <th className="py-2 px-3 text-center">Correct</th>
-                          <th className="py-2 px-3 text-center">Incorrect</th>
-                          <th className="py-2 px-3 text-center">Success Rate</th>
-                          <th className="py-2 px-3 text-center">Avg Time</th>
-                          <th className="py-2 px-3 text-right">Avg Score</th>
+                        <tr className="bg-slate-50 text-slate-900 font-bold uppercase text-[9px] border-b border-slate-350">
+                          <th className="py-2 px-3 w-[40%]">Question Description</th>
+                          <th className="py-2 px-3 text-center w-[12%]">Attempts</th>
+                          <th className="py-2 px-3 text-center w-[12%]">Correct</th>
+                          <th className="py-2 px-3 text-center w-[12%]">Incorrect</th>
+                          <th className="py-2 px-3 text-center w-[12%]">Success Rate</th>
+                          <th className="py-2 px-3 text-right w-[12%]">Avg Score</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-150 font-mono">
+                      <tbody className="divide-y divide-slate-300">
                         {dynamicQuestions.map((q, idx) => (
-                          <tr key={idx} className="hover:bg-slate-50/50">
-                            <td className="py-2.5 px-3 font-sans font-bold text-slate-900">{q.title}</td>
-                            <td className="py-2.5 px-3 text-center">{q.attempts}</td>
-                            <td className="py-2.5 px-3 text-center text-emerald-800 font-bold">{q.correct}</td>
-                            <td className="py-2.5 px-3 text-center text-rose-800">{q.incorrect}</td>
-                            <td className="py-2.5 px-3 text-center font-bold">{q.successRate}</td>
-                            <td className="py-2.5 px-3 text-center text-slate-500">{q.avgTime}</td>
-                            <td className="py-2.5 px-3 text-right font-bold text-slate-800">{q.avgScore}</td>
+                          <tr key={idx} className="bg-white hover:bg-slate-50/40">
+                            <td className="py-3 px-3 font-semibold text-slate-800">{q.title}</td>
+                            <td className="py-3 px-3 text-center font-mono">{q.attempts}</td>
+                            <td className="py-3 px-3 text-center text-emerald-800 font-bold font-mono">{q.correct}</td>
+                            <td className="py-3 px-3 text-center text-rose-800 font-mono">{q.incorrect}</td>
+                            <td className="py-3 px-3 text-center font-bold font-mono">{q.successRate}</td>
+                            <td className="py-3 px-3 text-right font-bold text-slate-900 font-mono">{q.avgScore}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1259,57 +1229,55 @@ export default function ReportDetailsPage({ params }: PageProps) {
               {/* TEMPLATE D: BATCH REPORT */}
               {report.category === "Batch" && (
                 <div className="space-y-6">
-                  <div className="bg-slate-50 p-4 border border-slate-200 rounded-lg space-y-3">
-                    <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450 border-b border-slate-200 pb-1.5">
-                      Batch Details
-                    </h4>
-                    <div className="grid grid-cols-2 gap-y-3 text-[10px]">
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Academic Batch:</span>
-                        <span className="font-bold text-slate-900">2026 Graduating Cohort (CSE)</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Total Enrollment:</span>
-                        <span className="font-bold text-slate-900 font-mono">{dynamicSummary.totalStudentsCount} candidates</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Batch Avg score:</span>
-                        <span className="font-bold text-slate-900 font-mono">{dynamicSummary.avgScore}</span>
-                      </div>
-                      <div>
-                        <span className="text-slate-400 font-semibold block">Placement Eligible (&gt; 50%):</span>
-                        <span className="font-bold text-emerald-800 font-mono">{dynamicSummary.passRate} candidates</span>
-                      </div>
-                    </div>
+                  {/* Centered Parameters table */}
+                  <div className="flex justify-center py-2">
+                    <table className="w-full max-w-sm text-[11px] font-sans text-left">
+                      <tbody>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold w-1/3">Academic Batch</td>
+                          <td className="py-1.5 font-bold text-slate-955 w-2/3">2026 Graduating Cohort (CSE)</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Total Enrollment</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{dynamicSummary.totalStudentsCount} candidates</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Batch Avg Score</td>
+                          <td className="py-1.5 font-bold text-slate-955 font-mono text-[10.5px]">{dynamicSummary.avgScore}</td>
+                        </tr>
+                        <tr className="align-baseline">
+                          <td className="py-1.5 pr-4 text-slate-500 font-semibold">Placement Eligible</td>
+                          <td className="py-1.5 font-bold text-emerald-750 font-mono text-[10.5px]">{dynamicSummary.passRate} candidates</td>
+                        </tr>
+                      </tbody>
+                    </table>
                   </div>
 
-                  <div className="space-y-3">
-                    <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450 pb-0.5">
-                      Section Outcomes Comparison
-                    </h4>
-                    
-                    <div className="border border-slate-200 rounded-lg overflow-hidden">
-                      <table className="w-full text-left border-collapse text-[10px]">
-                        <thead>
-                          <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[8px]">
-                            <th className="py-2 px-3">Class Section</th>
-                            <th className="py-2 px-3 text-center">Appeared</th>
-                            <th className="py-2 px-3 text-center font-bold">Average Score</th>
-                            <th className="py-2 px-3 text-right">Pass Percentage</th>
+                  <div className="text-center font-bold text-[11px] text-slate-900 tracking-wide uppercase pt-2">
+                    Section Outcomes Comparison
+                  </div>
+
+                  <div className="border border-slate-355 rounded-xs overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[10.5px] font-sans">
+                      <thead>
+                        <tr className="bg-slate-50 text-slate-900 font-bold uppercase text-[9px] border-b border-slate-350">
+                          <th className="py-2 px-3 w-[40%]">Class Section</th>
+                          <th className="py-2 px-3 text-center w-[20%]">Appeared</th>
+                          <th className="py-2 px-3 text-center w-[20%]">Average Score</th>
+                          <th className="py-2 px-3 text-right w-[20%]">Pass Percentage</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-300">
+                        {dynamicSections.map((sec, idx) => (
+                          <tr key={idx} className="bg-white hover:bg-slate-50/40">
+                            <td className="py-3 px-3 font-semibold text-slate-850">{sec.name}</td>
+                            <td className="py-3 px-3 text-center font-mono">{sec.appeared}</td>
+                            <td className="py-3 px-3 text-center font-bold font-mono">{sec.avgPercentage}</td>
+                            <td className="py-3 px-3 text-right text-emerald-800 font-bold font-mono">{sec.passPercentage}</td>
                           </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-150 font-mono">
-                          {dynamicSections.map((sec, idx) => (
-                            <tr key={idx}>
-                              <td className="py-2 px-3 font-sans font-semibold">{sec.name}</td>
-                              <td className="py-2 px-3 text-center">{sec.appeared}</td>
-                              <td className="py-2 px-3 text-center font-bold">{sec.avgPercentage}</td>
-                              <td className="py-2 px-3 text-right text-emerald-800 font-bold">{sec.passPercentage}</td>
-                            </tr>
-                          ))}
-                        </tbody>
-                      </table>
-                    </div>
+                        ))}
+                      </tbody>
+                    </table>
                   </div>
                 </div>
               )}
@@ -1317,30 +1285,30 @@ export default function ReportDetailsPage({ params }: PageProps) {
               {/* ========================================================================= */}
               {/* TEMPLATE E: DEPARTMENT REPORT */}
               {report.category === "Department" && (
-                <div className="space-y-4">
-                  <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-slate-450">
+                <div className="space-y-6">
+                  <div className="text-center font-bold text-[11px] text-slate-900 tracking-wide uppercase pt-2">
                     Department-wise Accreditation Averages
-                  </h4>
+                  </div>
 
-                  <div className="border border-slate-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left border-collapse text-[10px]">
+                  <div className="border border-slate-355 rounded-xs overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[10.5px] font-sans">
                       <thead>
-                        <tr className="bg-slate-50 border-b border-slate-200 text-slate-500 font-bold uppercase text-[8px]">
-                          <th className="py-2.5 px-3">Subject / Core Course</th>
-                          <th className="py-2.5 px-3 text-center">Evaluation Count</th>
-                          <th className="py-2.5 px-3 text-center">Total Audited</th>
-                          <th className="py-2.5 px-3 text-center">Success Rate</th>
-                          <th className="py-2.5 px-3 text-right">OBE Outcome Index</th>
+                        <tr className="bg-slate-50 text-slate-900 font-bold uppercase text-[9px] border-b border-slate-350">
+                          <th className="py-2.5 px-3 w-[40%]">Subject / Core Course</th>
+                          <th className="py-2.5 px-3 text-center w-[15%]">Evaluation Count</th>
+                          <th className="py-2.5 px-3 text-center w-[15%]">Total Audited</th>
+                          <th className="py-2.5 px-3 text-center w-[15%]">Success Rate</th>
+                          <th className="py-2.5 px-3 text-right w-[15%]">OBE Outcome Index</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-slate-150 font-mono">
+                      <tbody className="divide-y divide-slate-300 font-mono">
                         {dynamicDepts.map((d, idx) => (
-                          <tr key={idx}>
-                            <td className="py-2 px-3 font-sans font-bold text-slate-900">{d.subject}</td>
-                            <td className="py-2 px-3 text-center">{d.evaluationCount}</td>
-                            <td className="py-2 px-3 text-center">{d.totalAudited}</td>
-                            <td className="py-2 px-3 text-center text-emerald-800">{d.successRate}</td>
-                            <td className="py-2 px-3 text-right font-bold text-slate-800">{d.obeIndex}</td>
+                          <tr key={idx} className="bg-white hover:bg-slate-50/40">
+                            <td className="py-3 px-3 font-sans font-bold text-slate-900">{d.subject}</td>
+                            <td className="py-3 px-3 text-center">{d.evaluationCount}</td>
+                            <td className="py-3 px-3 text-center">{d.totalAudited}</td>
+                            <td className="py-3 px-3 text-center text-emerald-800">{d.successRate}</td>
+                            <td className="py-3 px-3 text-right font-sans font-bold text-slate-800">{d.obeIndex}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1352,30 +1320,30 @@ export default function ReportDetailsPage({ params }: PageProps) {
               {/* ========================================================================= */}
               {/* TEMPLATE F: AT-RISK STUDENTS REPORT */}
               {report.category === "AtRisk" && (
-                <div className="space-y-4">
-                  <h4 className="font-extrabold text-[9px] tracking-wider uppercase text-rose-700">
+                <div className="space-y-6">
+                  <div className="text-center font-bold text-[11px] text-rose-700 tracking-wide uppercase pt-2">
                     Targeted Intervention: Students Scoring below 50% Threshold
-                  </h4>
+                  </div>
 
-                  <div className="border border-rose-200 rounded-lg overflow-hidden">
-                    <table className="w-full text-left border-collapse text-[10px]">
+                  <div className="border border-rose-200 rounded-xs overflow-hidden">
+                    <table className="w-full text-left border-collapse text-[10.5px] font-sans">
                       <thead>
-                        <tr className="bg-rose-50/50 border-b border-rose-200 text-rose-800 font-bold uppercase text-[8px]">
-                          <th className="py-2 px-3">Roll Number</th>
-                          <th className="py-2 px-3">Student Name</th>
-                          <th className="py-2 px-3 text-center font-bold">Avg score</th>
-                          <th className="py-2 px-3">Weak Subject Area</th>
-                          <th className="py-2 px-3 text-right">Action Plan</th>
+                        <tr className="bg-rose-50/50 text-rose-900 font-bold uppercase text-[9px] border-b border-rose-250">
+                          <th className="py-2 px-3 w-[20%]">Roll Number</th>
+                          <th className="py-2 px-3 w-[30%]">Student Name</th>
+                          <th className="py-2 px-3 text-center w-[15%]">Avg score</th>
+                          <th className="py-2 px-3 w-[20%]">Weak Subject Area</th>
+                          <th className="py-2 px-3 text-right w-[15%]">Action Plan</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-rose-100 font-mono">
                         {dynamicAtRisk.map((s, idx) => (
-                          <tr key={idx}>
-                            <td className="py-2.5 px-3 font-bold text-slate-850">{s.roll}</td>
-                            <td className="py-2.5 px-3 font-sans font-medium text-slate-900">{s.name}</td>
-                            <td className="py-2.5 px-3 text-center text-rose-700 font-bold">{s.score}</td>
-                            <td className="py-2.5 px-3 font-sans text-slate-600">{s.weakArea}</td>
-                            <td className="py-2.5 px-3 text-right font-sans text-blue-700 font-bold">{s.actionPlan}</td>
+                          <tr key={idx} className="bg-white hover:bg-rose-50/30">
+                            <td className="py-3 px-3 font-bold text-slate-850">{s.roll}</td>
+                            <td className="py-3 px-3 font-sans font-medium text-slate-900">{s.name}</td>
+                            <td className="py-3 px-3 text-center text-rose-700 font-bold">{s.score}</td>
+                            <td className="py-3 px-3 font-sans text-slate-650">{s.weakArea}</td>
+                            <td className="py-3 px-3 text-right font-sans text-blue-750 font-bold">{s.actionPlan}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -1386,34 +1354,9 @@ export default function ReportDetailsPage({ params }: PageProps) {
 
             </div>
 
-            {/* 3. Faculty Signatures and Timestamp (at the bottom) */}
-            <div className="pt-8 border-t border-slate-200 mt-12 space-y-6">
-              <div className="flex justify-between items-center text-[10px] text-slate-650">
-                <span>Report Generated by: <span className="font-bold text-slate-900">{report.generatedBy}</span></span>
-                <span>Timestamp: <span className="font-mono text-slate-900">{generatedTime}</span></span>
-              </div>
-
-              {/* Signature Area */}
-              <div className="flex justify-between pt-8 text-[10px] font-sans font-medium">
-                <div className="w-48 text-center space-y-1">
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="font-bold text-slate-900">Faculty Coordinator</p>
-                    <p className="text-slate-400 text-[8px] uppercase">PSG Tech Evaluator Node</p>
-                  </div>
-                </div>
-
-                <div className="w-48 text-center space-y-1">
-                  <div className="border-t border-slate-400 pt-2">
-                    <p className="font-bold text-slate-900">HOD / Academic Chair</p>
-                    <p className="text-slate-400 text-[8px] uppercase">Approved signature seal</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Security Audit Cryptographic Hash footer */}
-              <div className="bg-slate-50 border border-slate-200 p-2.5 rounded font-mono text-[8px] text-slate-450 leading-normal text-center select-all">
-                SECURE SHA256 PLATFORM GRADER VERIFICATION HASH: {Math.random().toString(36).substring(2) + Math.random().toString(36).substring(2)}
-              </div>
+            {/* Clean generation footer */}
+            <div className="pt-6 border-t border-slate-100 flex justify-end text-[9px] text-slate-550 font-mono">
+              <span>Generated on: {generatedTime}</span>
             </div>
 
           </div>
