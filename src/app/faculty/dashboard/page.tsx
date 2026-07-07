@@ -1510,23 +1510,9 @@ export default function FacultyDashboard() {
                       className="w-full text-slate-900 border border-slate-200 rounded-md px-3 py-2 bg-white focus:outline-hidden focus:ring-1 focus:ring-navy-900"
                     >
                       <option value="">-- Select Subject --</option>
-                      <option value="CS201">CS201 - Data Structures</option>
-                      <option value="CS202">CS202 - Object Oriented Programming</option>
-                      <option value="CS301">CS301 - Database Management Systems</option>
-                      <option value="CS302">CS302 - Operating Systems</option>
-                      <option value="CS303">CS303 - Computer Networks</option>
-                      <option value="CS304">CS304 - Web Technologies</option>
-                      <option value="CS401">CS401 - Machine Learning</option>
-                      <option value="CS402">CS402 - Compiler Design</option>
                       <option value="IT101">IT101 - Programming in C</option>
                       <option value="IT102">IT102 - Python Programming</option>
                       <option value="IT201">IT201 - Java Programming</option>
-                      <option value="IT305">IT305 - Software Engineering</option>
-                      <option value="EC201">EC201 - Signals and Systems</option>
-                      <option value="EC301">EC301 - Embedded Systems</option>
-                      <option value="EE201">EE201 - Circuit Analysis</option>
-                      <option value="ME201">ME201 - Engineering Mechanics</option>
-                      <option value="CE201">CE201 - Structural Analysis</option>
                     </select>
                   </div>
 
