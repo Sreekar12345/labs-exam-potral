@@ -279,14 +279,16 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
     "id", "pow", "divmod", "all", "any", "reversed", "super", "property", "staticmethod", "classmethod"
   ]);
 
-  const callRegex = /\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\(/g;
+  const callRegex = /(?:\.([a-zA-Z_][a-zA-Z0-9_]*)\s*\(|\b([a-zA-Z_][a-zA-Z0-9_]*)\s*\()/g;
   let callMatch;
   while ((callMatch = callRegex.exec(cleanCodeText)) !== null) {
-    const funcName = callMatch[1];
-    if (!standardBuiltins.has(funcName) && !userFuncs.has(funcName)) {
+    const funcName = callMatch[2]; // Group 2 matches standalone functions (not preceded by dot)
+    if (funcName && !standardBuiltins.has(funcName) && !userFuncs.has(funcName)) {
       let errLine = 1;
       for (let i = 0; i < lines.length; i++) {
-        if (new RegExp(`\\b${funcName}\\b\\s*\\(`).test(cleanCodeForAnalysis(lines[i]))) {
+        const lineStr = cleanCodeForAnalysis(lines[i]);
+        const idx = lineStr.indexOf(funcName);
+        if (idx !== -1 && (idx === 0 || lineStr[idx - 1] !== '.')) {
           errLine = i + 1;
           break;
         }
@@ -341,92 +343,250 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
     }
   }
 
-  // 4. Check for correct solution logic
-  let isCorrect = false;
-
-  if (cleanTitle.includes("reverse each word")) {
-    isCorrect = userCode.includes(".split") && (userCode.includes("[::-1]") || userCode.includes("reverse"));
-  } else if (cleanTitle.includes("reverse the string")) {
-    isCorrect = userCode.includes("[::-1]") || userCode.includes("reverse");
-  } else if (cleanTitle.includes("sum of list") || cleanTitle.includes("sum of elements")) {
-    isCorrect = userCode.includes("sum(") || userCode.includes("+") || userCode.includes("+= ");
-  } else if (cleanTitle.includes("count the characters")) {
-    isCorrect = userCode.includes("len(");
-  } else if (cleanTitle.includes("palindrome of string")) {
-    isCorrect = userCode.includes("==") && (userCode.includes("[::-1]") || userCode.includes("reverse"));
-  } else if (cleanTitle.includes("lowercase to uppercase") && cleanTitle.includes("without")) {
-    isCorrect = !userCode.includes(".upper()") && (userCode.includes("ord(") || userCode.includes("chr(") || userCode.includes("- 32") || userCode.includes("-32"));
-  } else if (cleanTitle.includes("lowercase to uppercase")) {
-    isCorrect = userCode.includes(".upper()");
-  } else if (cleanTitle.includes("count the number of words")) {
-    isCorrect = userCode.includes(".split") && userCode.includes("len(");
-  } else if (cleanTitle.includes("alternate character removal")) {
-    isCorrect = userCode.includes("[::2]");
-  } else if (cleanTitle.includes("character frequency winner")) {
-    isCorrect = userCode.includes("count") || userCode.includes("max") || userCode.includes("dict") || userCode.includes("frequency");
-  } else if (cleanTitle.includes("mirror word")) {
-    isCorrect = userCode.includes("==") && (userCode.includes("[::-1]") || userCode.includes("reverse"));
-  } else if (cleanTitle.includes("word weight")) {
-    isCorrect = userCode.includes(".split") && userCode.includes("len(");
-  } else if (cleanTitle.includes("special character filter")) {
-    isCorrect = userCode.includes("not") || userCode.includes("isalnum") || userCode.includes("isalpha") || userCode.includes("isdigit");
-  } else if (cleanTitle.includes("find the largest number")) {
-    isCorrect = userCode.includes("max(") || userCode.includes(">") || userCode.includes("sort(");
-  } else if (cleanTitle.includes("print only even")) {
-    isCorrect = userCode.includes("%") && userCode.includes("2") && userCode.includes("0");
-  } else if (cleanTitle.includes("count of even and odd")) {
-    isCorrect = userCode.includes("%") && userCode.includes("2") && userCode.includes("0");
-  } else if (cleanTitle.includes("reverse the elements")) {
-    isCorrect = userCode.includes("[::-1]") || userCode.includes("reverse");
-  } else if (cleanTitle.includes("sum of positive and negative")) {
-    isCorrect = userCode.includes(">") && userCode.includes("<");
-  } else if (cleanTitle.includes("count and sum of positive")) {
-    isCorrect = userCode.includes(">") && userCode.includes("<");
-  } else if (cleanTitle.includes("count the numbers in a string")) {
-    isCorrect = userCode.includes("isdigit") || userCode.includes("isnumeric") || userCode.includes("len(");
-  } else if (cleanTitle.includes("count the special characters")) {
-    isCorrect = userCode.includes("not") || userCode.includes("isalnum") || userCode.includes("isalpha") || userCode.includes("isdigit");
-  } else if (cleanTitle.includes("remove duplicate")) {
-    isCorrect = userCode.includes("set") || userCode.includes("not in") || userCode.includes("dict.fromkeys");
-  } else if (cleanTitle.includes("toggle case")) {
-    isCorrect = userCode.includes("swapcase") || userCode.includes("isupper") || userCode.includes("islower");
-  } else if (cleanTitle.includes("replace space")) {
-    isCorrect = userCode.includes("replace") || (userCode.includes("split") && userCode.includes("join"));
-  } else {
-    isCorrect = true; 
-  }
-
-  if (!isCorrect) {
-    return {
-      stdout: "",
-      stderr: `Logical Error: The code does not implement the correct algorithm for '${questionTitle}'`,
-      exitCode: 1
-    };
-  }
-
-  // 5. Solve using standard logic
+  // 4. Try running the user's code using the JS-based Python runner
   try {
-    let stdout = "";
+    const inputLines = input.split('\n');
+    let inputIndex = 0;
+    const consoleOutputs: string[] = [];
+
+    const context: Record<string, any> = {
+      input: () => {
+        if (inputIndex < inputLines.length) {
+          return inputLines[inputIndex++];
+        }
+        return "";
+      },
+      print: (...args: any[]) => {
+        consoleOutputs.push(args.map(x => typeof x === 'object' ? JSON.stringify(x) : String(x)).join(' '));
+      },
+      len: (x: any) => {
+        if (x && typeof x.length === 'number') return x.length;
+        if (x && typeof x.size === 'number') return x.size;
+        return 0;
+      },
+      int: (x: any) => {
+        const p = parseInt(x, 10);
+        return isNaN(p) ? 0 : p;
+      },
+      float: (x: any) => {
+        const p = parseFloat(x);
+        return isNaN(p) ? 0.0 : p;
+      },
+      str: (x: any) => String(x),
+      chr: (x: any) => String.fromCharCode(x),
+      ord: (x: any) => {
+        if (typeof x === 'string' && x.length > 0) return x.charCodeAt(0);
+        throw new Error("TypeError: ord() expected string of length 1");
+      },
+      list: (x: any) => {
+        if (typeof x === 'string') return x.split('');
+        if (Array.isArray(x)) return [...x];
+        if (x && typeof x[Symbol.iterator] === 'function') return Array.from(x);
+        return [];
+      },
+      dict: (x: any) => ({}),
+      set: (x: any) => {
+        if (Array.isArray(x)) return new Set(x);
+        return new Set();
+      },
+      sum: (x: any) => {
+        if (Array.isArray(x)) {
+          return x.reduce((a, b) => Number(a) + Number(b), 0);
+        }
+        return 0;
+      },
+      max: (...args: any[]) => {
+        if (args.length === 1 && Array.isArray(args[0])) {
+          return Math.max(...args[0].map(Number));
+        }
+        return Math.max(...args.map(Number));
+      },
+      min: (...args: any[]) => {
+        if (args.length === 1 && Array.isArray(args[0])) {
+          return Math.min(...args[0].map(Number));
+        }
+        return Math.min(...args.map(Number));
+      },
+      sorted: (x: any) => {
+        if (Array.isArray(x)) {
+          return [...x].sort((a, b) => String(a).localeCompare(String(b)));
+        }
+        return [];
+      },
+      range: (start: number, stop?: number, step: number = 1) => {
+        let actualStart = start;
+        let actualStop = stop;
+        if (actualStop === undefined) {
+          actualStop = start;
+          actualStart = 0;
+        }
+        const arr: number[] = [];
+        for (let i = actualStart; i < actualStop; i += step) {
+          arr.push(i);
+        }
+        return arr;
+      },
+      map: (func: Function, iterable: any) => {
+        if (!iterable || typeof iterable.map !== 'function') {
+          throw new Error("TypeError: map() argument 2 must be iterable");
+        }
+        return iterable.map(func);
+      },
+      filter: (func: Function, iterable: any) => {
+        if (!iterable || typeof iterable.filter !== 'function') {
+          throw new Error("TypeError: filter() argument 2 must be iterable");
+        }
+        return iterable.filter(func);
+      },
+      abs: (x: any) => Math.abs(Number(x)),
+      round: (x: any) => Math.round(Number(x)),
+      enumerate: (x: any) => {
+        if (Array.isArray(x)) {
+          return x.map((val, idx) => [idx, val]);
+        }
+        return [];
+      },
+      zip: (a: any[], b: any[]) => {
+        const len = Math.min(a.length, b.length);
+        const arr = [];
+        for (let i = 0; i < len; i++) {
+          arr.push([a[i], b[i]]);
+        }
+        return arr;
+      }
+    };
+
+    // Transpile userCode to JS
+    const codeLines = userCode.split('\n');
+    const jsLines: string[] = [];
+    const indentStack: number[] = [];
+
+    for (let idx = 0; idx < codeLines.length; idx++) {
+      const line = codeLines[idx];
+      const trimmed = line.trim();
+
+      if (trimmed === "" || trimmed.startsWith("#")) {
+        continue;
+      }
+
+      const currentIndent = line.length - line.trimStart().length;
+
+      while (indentStack.length > 0 && indentStack[indentStack.length - 1] >= currentIndent) {
+        indentStack.pop();
+        const parentIndent = indentStack.length > 0 ? indentStack[indentStack.length - 1] : 0;
+        jsLines.push(" ".repeat(parentIndent) + "}");
+      }
+
+      let statement = trimmed;
+      if (statement.endsWith(':')) {
+        statement = statement.slice(0, -1).trim();
+      }
+
+      let processed = statement;
+
+      if (statement.startsWith("def ")) {
+        const match = statement.match(/^def\s+([a-zA-Z_][a-zA-Z0-9_]*)\s*\(([^)]*)\)/);
+        if (match) {
+          processed = `function ${match[1]}(${match[2]}) {`;
+          indentStack.push(currentIndent);
+        }
+      } else if (statement.startsWith("if ")) {
+        const cond = statement.slice(3).trim();
+        processed = `if (${translateExpr(cond)}) {`;
+        indentStack.push(currentIndent);
+      } else if (statement.startsWith("elif ")) {
+        const cond = statement.slice(5).trim();
+        processed = `else if (${translateExpr(cond)}) {`;
+        indentStack.push(currentIndent);
+      } else if (statement === "else") {
+        processed = `else {`;
+        indentStack.push(currentIndent);
+      } else if (statement.startsWith("for ")) {
+        const forMatch = statement.match(/^for\s+([a-zA-Z_][a-zA-Z0-9_]*)\s+in\s+(.*)/);
+        if (forMatch) {
+          const item = forMatch[1];
+          const iterable = translateExpr(forMatch[2]);
+          processed = `let loop_cnt_${idx} = 0;\nfor (let ${item} of ${iterable}) {\nif (++loop_cnt_${idx} > 1000) throw new Error("Time Limit Exceeded: Loop execution limit exceeded (1000 iterations)");`;
+          indentStack.push(currentIndent);
+        }
+      } else if (statement.startsWith("while ")) {
+        const cond = statement.slice(6).trim();
+        processed = `let loop_cnt_${idx} = 0;\nwhile (${translateExpr(cond)}) {\nif (++loop_cnt_${idx} > 1000) throw new Error("Time Limit Exceeded: Loop execution limit exceeded (1000 iterations)");`;
+        indentStack.push(currentIndent);
+      } else {
+        processed = translateExpr(statement);
+      }
+
+      jsLines.push(" ".repeat(currentIndent) + processed);
+    }
+
+    while (indentStack.length > 0) {
+      indentStack.pop();
+      const parentIndent = indentStack.length > 0 ? indentStack[indentStack.length - 1] : 0;
+      jsLines.push(" ".repeat(parentIndent) + "}");
+    }
+
+    function translateExpr(expr: string): string {
+      let t = expr;
+      t = t.replace(/\band\b/g, '&&');
+      t = t.replace(/\bor\b/g, '||');
+      t = t.replace(/\bnot\b/g, '!');
+      t = t.replace(/\bTrue\b/g, 'true');
+      t = t.replace(/\bFalse\b/g, 'false');
+      t = t.replace(/\bNone\b/g, 'null');
+      t = t.replace(/\[\s*:\s*:\s*-1\s*\]/g, '.split("").reverse().join("")');
+      t = t.replace(/\[\s*:\s*:\s*2\s*\]/g, '.split("").filter((_, i) => i % 2 === 0).join("")');
+      t = t.replace(/\.append\s*\(/g, '.push(');
+      t = t.replace(/\.split\s*\(\s*\)/g, '.split(/\\s+/)');
+      t = t.replace(/\.lower\s*\(\)/g, '.toLowerCase()');
+      t = t.replace(/\.upper\s*\(\)/g, '.toUpperCase()');
+      t = t.replace(/\.swapcase\s*\(\)/g, '.split("").map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join("")');
+      return t;
+    }
+
+    // Append call to solve() if not present
+    let runsSolve = false;
+    for (const line of codeLines) {
+      if (line.trim().startsWith("solve(")) {
+        runsSolve = true;
+      }
+    }
+    if (!runsSolve && userCode.includes("def solve(")) {
+      jsLines.push("solve();");
+    }
+
+    const script = `
+      const { input, print, len, int, float, str, chr, ord, list, dict, set, sum, max, min, sorted, range, map, filter, abs, round, enumerate, zip } = context;
+      ${jsLines.join('\n')}
+    `;
+
+    const runner = new Function("context", script);
+    runner(context);
+
+    const actualOutput = consoleOutputs.join('\n');
+
+    // Generate expected output using standard logic
+    let expectedOutput = "";
     const cleanInput = input.trim();
 
     if (cleanTitle.includes("reverse each word")) {
-      stdout = cleanInput.split(/\s+/).map(w => w.split("").reverse().join("")).join(" ");
+      expectedOutput = cleanInput.split(/\s+/).map(w => w.split("").reverse().join("")).join(" ");
     } else if (cleanTitle.includes("reverse the string")) {
-      stdout = cleanInput.split("").reverse().join("");
+      expectedOutput = cleanInput.split("").reverse().join("");
     } else if (cleanTitle.includes("sum of list") || cleanTitle.includes("sum of elements")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
-      stdout = numbers.reduce((a, b) => a + b, 0).toString();
+      expectedOutput = numbers.reduce((a, b) => a + b, 0).toString();
     } else if (cleanTitle.includes("count the characters")) {
-      stdout = cleanInput.length.toString();
+      expectedOutput = cleanInput.length.toString();
     } else if (cleanTitle.includes("palindrome of string")) {
       const isPal = cleanInput.toLowerCase() === cleanInput.toLowerCase().split("").reverse().join("");
-      stdout = isPal ? "Palindrome" : "Not Palindrome";
+      expectedOutput = isPal ? "Palindrome" : "Not Palindrome";
     } else if (cleanTitle.includes("lowercase to uppercase")) {
-      stdout = cleanInput.toUpperCase();
+      expectedOutput = cleanInput.toUpperCase();
     } else if (cleanTitle.includes("count the number of words")) {
-      stdout = cleanInput.split(/\s+/).filter(Boolean).length.toString();
+      expectedOutput = cleanInput.split(/\s+/).filter(Boolean).length.toString();
     } else if (cleanTitle.includes("alternate character removal")) {
-      stdout = cleanInput.split("").filter((_, idx) => idx % 2 === 0).join("");
+      expectedOutput = cleanInput.split("").filter((_, idx) => idx % 2 === 0).join("");
     } else if (cleanTitle.includes("character frequency winner")) {
       const freq: Record<string, number> = {};
       let maxChar = "";
@@ -438,34 +598,34 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
           maxChar = char;
         }
       }
-      stdout = maxChar;
+      expectedOutput = maxChar;
     } else if (cleanTitle.includes("mirror word")) {
       const isPal = cleanInput.toLowerCase() === cleanInput.toLowerCase().split("").reverse().join("");
-      stdout = isPal ? "Mirror Word" : "Not a Mirror Word";
+      expectedOutput = isPal ? "Mirror Word" : "Not a Mirror Word";
     } else if (cleanTitle.includes("word weight")) {
       const words = cleanInput.split(/\s+/).filter(Boolean);
-      stdout = words.map(w => `${w} : ${w.length}`).join("\n");
+      expectedOutput = words.map(w => `${w} : ${w.length}`).join("\n");
     } else if (cleanTitle.includes("special character filter")) {
-      stdout = cleanInput.split("").filter(c => !/[a-zA-Z0-9]/.test(c)).join("");
+      expectedOutput = cleanInput.split("").filter(c => !/[a-zA-Z0-9]/.test(c)).join("");
     } else if (cleanTitle.includes("find the largest number")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
-      stdout = Math.max(...numbers).toString();
+      expectedOutput = Math.max(...numbers).toString();
     } else if (cleanTitle.includes("print only even")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
-      stdout = numbers.filter(n => n % 2 === 0).join(" ");
+      expectedOutput = numbers.filter(n => n % 2 === 0).join(" ");
     } else if (cleanTitle.includes("count of even and odd")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
       const evens = numbers.filter(n => n % 2 === 0).length;
       const odds = numbers.length - evens;
-      stdout = `Even Count : ${evens}\nOdd Count : ${odds}`;
+      expectedOutput = `Even Count : ${evens}\nOdd Count : ${odds}`;
     } else if (cleanTitle.includes("reverse the elements")) {
       const numbers = cleanInput.split(/\s+/).slice(1);
-      stdout = numbers.reverse().join(" ");
+      expectedOutput = numbers.reverse().join(" ");
     } else if (cleanTitle.includes("sum of positive and negative")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
       const pos = numbers.filter(n => n > 0).reduce((a, b) => a + b, 0);
       const neg = numbers.filter(n => n < 0).reduce((a, b) => a + b, 0);
-      stdout = `Positive Sum : ${pos}\nNegative Sum : ${neg}`;
+      expectedOutput = `Positive Sum : ${pos}\nNegative Sum : ${neg}`;
     } else if (cleanTitle.includes("count and sum of positive")) {
       const numbers = cleanInput.split(/\s+/).slice(1).map(Number);
       const posNums = numbers.filter(n => n > 0);
@@ -474,11 +634,11 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
       const negCount = negNums.length;
       const posSum = posNums.reduce((a, b) => a + b, 0);
       const negSum = negNums.reduce((a, b) => a + b, 0);
-      stdout = `Positive Count : ${posCount}\nNegative Count : ${negCount}\nPositive Sum : ${posSum}\nNegative Sum : ${negSum}`;
+      expectedOutput = `Positive Count : ${posCount}\nNegative Count : ${negCount}\nPositive Sum : ${posSum}\nNegative Sum : ${negSum}`;
     } else if (cleanTitle.includes("count the numbers in a string")) {
-      stdout = cleanInput.split("").filter(c => /[0-9]/.test(c)).length.toString();
+      expectedOutput = cleanInput.split("").filter(c => /[0-9]/.test(c)).length.toString();
     } else if (cleanTitle.includes("count the special characters")) {
-      stdout = cleanInput.split("").filter(c => !/[a-zA-Z0-9]/.test(c)).length.toString();
+      expectedOutput = cleanInput.split("").filter(c => !/[a-zA-Z0-9]/.test(c)).length.toString();
     } else if (cleanTitle.includes("remove duplicate")) {
       const seen = new Set();
       const res: string[] = [];
@@ -488,18 +648,55 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
           res.push(c);
         }
       }
-      stdout = res.join("");
+      expectedOutput = res.join("");
     } else if (cleanTitle.includes("toggle case")) {
-      stdout = cleanInput.split("").map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join("");
+      expectedOutput = cleanInput.split("").map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join("");
     } else if (cleanTitle.includes("replace space")) {
-      stdout = cleanInput.replace(/\s+/g, "-");
+      expectedOutput = cleanInput.replace(/\s+/g, "-");
     } else {
-      stdout = cleanInput;
+      expectedOutput = cleanInput;
     }
 
-    return { stdout, stderr: "", exitCode: 0 };
+    // Match validation using alphanumeric tokens or raw match
+    const cleanActual = actualOutput.replace(/['"“”]/g, "").trim().toLowerCase();
+    const cleanExpected = expectedOutput.replace(/['"“”]/g, "").trim().toLowerCase();
+    
+    let isCorrect = cleanActual.replace(/\r/g, "") === cleanExpected.replace(/\r/g, "");
+    if (!isCorrect) {
+      const toTokens = (s: string) => s.toLowerCase().split(/[^a-z0-9]+/i).filter(Boolean);
+      const tAct = toTokens(cleanActual);
+      const tExp = toTokens(cleanExpected);
+      if (tAct.length === tExp.length && tAct.length > 0 && tAct.every((t, i) => t === tExp[i])) {
+        isCorrect = true;
+      }
+    }
+
+    // Special constraint check for "without using upper()"
+    if (isCorrect && cleanTitle.includes("lowercase to uppercase") && cleanTitle.includes("without")) {
+      if (userCode.includes(".upper()")) {
+        return {
+          stdout: actualOutput,
+          stderr: "AssertionError: You are not allowed to call .upper() string method in this challenge.",
+          exitCode: 1
+        };
+      }
+    }
+
+    if (isCorrect) {
+      return { stdout: actualOutput, stderr: "", exitCode: 0 };
+    } else {
+      return {
+        stdout: actualOutput,
+        stderr: `AssertionError: The output does not match expected output.\nExpected: ${expectedOutput}\nActual: ${actualOutput}`,
+        exitCode: 1
+      };
+    }
   } catch (err: any) {
-    return { stdout: "", stderr: `Runtime Error: ${err.message}`, exitCode: 1 };
+    return {
+      stdout: "",
+      stderr: `Runtime Error: ${err.message}`,
+      exitCode: 1
+    };
   }
 }
 
@@ -603,7 +800,16 @@ except Exception:
       }
 
       // Fallback to JS/TS python simulator if interpreter is not configured/installed (e.g. Vercel or Windows app execution alias)
-      const isCmdNotFound = result.code === 9009 || (result.stderr && result.stderr.includes("Python was not found"));
+      const isCmdNotFound = 
+        result.code === 9009 || 
+        (result.error && (result.error.includes("ENOENT") || result.error.toLowerCase().includes("not found"))) ||
+        (result.stderr && (
+          result.stderr.includes("Python was not found") || 
+          result.stderr.toLowerCase().includes("not found") || 
+          result.stderr.toLowerCase().includes("not recognized") ||
+          result.stderr.toLowerCase().includes("command not found") ||
+          result.stderr.toLowerCase().includes("no such file")
+        ));
       if (isCmdNotFound || (result.error && (result.error.includes("ENOENT") || result.error.includes("not found")))) {
         const simulated = simulatePython(questionTitle || "", code, input || "");
         return NextResponse.json({
