@@ -388,10 +388,41 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
     if (!student || !assessment || !session) return null;
 
     let questionIds: string[] = [];
-    try {
-      questionIds = JSON.parse(session.questionOrder);
-    } catch (e) {
-      questionIds = ["15", "21", "9", "8", "18"];
+    if (session && session.questionOrder) {
+      try {
+        questionIds = JSON.parse(session.questionOrder);
+      } catch (e) {}
+    }
+
+    if (questionIds.length === 0) {
+      const stored = typeof window !== "undefined" ? window.localStorage.getItem("examcoder_assessment_questions_" + assessment.id) : null;
+      if (stored) {
+        try {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) {
+            questionIds = parsed.map((q: any) => typeof q === "object" ? q.id : q);
+          }
+        } catch (e) {}
+      }
+    }
+
+    if (questionIds.length === 0) {
+      const subjectQuestions = allQuestions.filter(q => {
+        const titleLower = q.title.toLowerCase();
+        const subjectLower = (assessment.subject || "").toLowerCase();
+        if (subjectLower.includes("pyt") || subjectLower.includes("it102") || subjectLower.includes("python")) {
+          return q.language === "python" || titleLower.includes("python");
+        }
+        if (subjectLower.includes("jav") || subjectLower.includes("it201") || subjectLower.includes("java")) {
+          return q.language === "java" || titleLower.includes("java");
+        }
+        if (subjectLower.includes("c") || subjectLower.includes("it101")) {
+          return q.language === "c" || q.language === "cpp";
+        }
+        return true;
+      });
+      const selectedList = subjectQuestions.length > 0 ? subjectQuestions : allQuestions;
+      questionIds = selectedList.slice(0, Math.min(5, selectedList.length)).map(q => q.id);
     }
 
     const resolved = questionIds.map((id, index) => {
@@ -703,6 +734,33 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
                 </tbody>
               </table>
             </div>
+
+            {/* New section for student's submitted code summary */}
+            {questionOutcomes.some(q => q.submittedCode && q.submittedCode.trim() !== "") && (
+              <div className="space-y-4 pt-4 border-t border-slate-350">
+                <div className="border-t border-b border-slate-300 py-2 text-center font-bold text-[11px] text-slate-900 tracking-wide uppercase font-sans">
+                  Student Code Submissions Summary
+                </div>
+                
+                <div className="space-y-4">
+                  {questionOutcomes
+                    .filter(q => q.submittedCode && q.submittedCode.trim() !== "")
+                    .map((q, idx) => (
+                      <div key={q.id} className="border border-slate-300 p-4 space-y-2 bg-white break-inside-avoid">
+                        <div className="flex justify-between items-center border-b border-slate-200 pb-1.5 font-bold text-[10px] font-sans">
+                          <span className="text-slate-900">Q{idx + 1}: {q.title}</span>
+                          <span className="bg-slate-100 border border-slate-200 text-slate-700 px-2 py-0.5 rounded text-[8px] uppercase">
+                            Python 3.10
+                          </span>
+                        </div>
+                        <pre className="font-mono text-[10px] text-slate-900 whitespace-pre-wrap leading-relaxed bg-slate-50/50 p-3 border border-slate-200 overflow-x-auto">
+                          {q.submittedCode}
+                        </pre>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
 
           </div>
 
