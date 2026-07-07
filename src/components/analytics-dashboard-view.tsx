@@ -145,7 +145,12 @@ export default function AnalyticsDashboardView({
       let sessionCodes: Record<string, string> = {};
       if (session.codeSubmissions) {
         try {
-          sessionCodes = JSON.parse(session.codeSubmissions);
+          const parsed = JSON.parse(session.codeSubmissions);
+          if (parsed && typeof parsed === "object" && parsed.submissions && typeof parsed.submissions === "object") {
+            sessionCodes = parsed.submissions;
+          } else if (parsed && typeof parsed === "object") {
+            sessionCodes = parsed;
+          }
         } catch (e) {}
       }
       
@@ -459,7 +464,12 @@ export default function AnalyticsDashboardView({
         let sessionCodes: Record<string, string> = {};
         if (session.codeSubmissions) {
           try {
-            sessionCodes = JSON.parse(session.codeSubmissions);
+            const parsed = JSON.parse(session.codeSubmissions);
+            if (parsed && typeof parsed === "object" && parsed.submissions && typeof parsed.submissions === "object") {
+              sessionCodes = parsed.submissions;
+            } else if (parsed && typeof parsed === "object") {
+              sessionCodes = parsed;
+            }
           } catch (e) {}
         }
 

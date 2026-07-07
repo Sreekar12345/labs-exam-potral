@@ -382,7 +382,14 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
     let sessionCodes: Record<string, string> = {};
     if (session && session.codeSubmissions) {
       try {
-        sessionCodes = JSON.parse(session.codeSubmissions);
+        const parsed = JSON.parse(session.codeSubmissions);
+        // Handle nested format: { submissions: { "15": "code..." } }
+        if (parsed && typeof parsed === "object" && parsed.submissions && typeof parsed.submissions === "object") {
+          sessionCodes = parsed.submissions;
+        } else if (parsed && typeof parsed === "object") {
+          // Handle flat format: { "15": "code..." }
+          sessionCodes = parsed;
+        }
       } catch (e) {}
     }
 
