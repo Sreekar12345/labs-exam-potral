@@ -1,6 +1,6 @@
 # Secure Programming Assessment Platform (LabExam)
 
-**Deployment URL:** [https://labs-exam-potral-orpin.vercel.app/](https://labs-exam-potral-orpin.vercel.app/)
+**Deployment URL:** [https://labexam-blond.vercel.app/](https://labexam-blond.vercel.app/)
 **GitHub Repository:** [https://github.com/Sreekar12345/labs-exam-potral.git](https://github.com/Sreekar12345/labs-exam-potral.git)
 
 ## Getting Started
