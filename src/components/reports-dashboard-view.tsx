@@ -78,7 +78,7 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
     const asms = loadAssessments();
     setAssessments(asms.filter(a => {
       const dynamicStatus = getAssessmentStatus(a, "", []);
-      return dynamicStatus === "Completed";
+      return dynamicStatus === "Completed" || dynamicStatus === "Active" || dynamicStatus === "Upcoming";
     }));
     setStudentCount(loadStudents().length);
     setFacultyName(loadFacultyProfile().fullName);
@@ -555,10 +555,10 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
                         if (!selectedSubject) return true;
                         const subUpper = a.subject.toUpperCase();
                         if (selectedSubject === "Python") {
-                          return subUpper.includes("PYT") || subUpper.includes("PYTHON");
+                          return subUpper.includes("PYT") || subUpper.includes("PYTHON") || subUpper.includes("CS201") || subUpper.includes("CS304");
                         }
                         if (selectedSubject === "Java") {
-                          return subUpper.includes("JAV") || subUpper.includes("JAVA");
+                          return subUpper.includes("JAV") || subUpper.includes("JAVA") || subUpper.includes("IT305");
                         }
                         return false;
                       })
