@@ -236,7 +236,6 @@ export function loadStudents(): Student[] {
   const data = localStorage.getItem(KEYS.STUDENTS);
   if (!data) {
     localStorage.setItem(KEYS.STUDENTS, JSON.stringify(DEFAULT_STUDENTS));
-    syncSaveToDb("students", DEFAULT_STUDENTS);
     return DEFAULT_STUDENTS;
   }
   return JSON.parse(data);
@@ -254,7 +253,6 @@ export function loadAssessments(): Assessment[] {
   const data = localStorage.getItem(KEYS.ASSESSMENTS);
   if (!data) {
     localStorage.setItem(KEYS.ASSESSMENTS, JSON.stringify(DEFAULT_ASSESSMENTS));
-    syncSaveToDb("assessments", DEFAULT_ASSESSMENTS);
     return DEFAULT_ASSESSMENTS;
   }
   return JSON.parse(data);
@@ -272,7 +270,6 @@ export function loadQuestions(): Question[] {
   const data = localStorage.getItem(KEYS.QUESTIONS);
   if (!data) {
     localStorage.setItem(KEYS.QUESTIONS, JSON.stringify(DEFAULT_QUESTIONS));
-    syncSaveToDb("questions", DEFAULT_QUESTIONS);
     return DEFAULT_QUESTIONS;
   }
   return JSON.parse(data);
@@ -338,7 +335,6 @@ export function loadReports(): ReportLog[] {
   const data = localStorage.getItem("examcoder_reports");
   if (!data) {
     localStorage.setItem("examcoder_reports", JSON.stringify(DEFAULT_REPORTS));
-    syncSaveToDb("reports", DEFAULT_REPORTS);
     return DEFAULT_REPORTS;
   }
   return JSON.parse(data);
@@ -356,7 +352,6 @@ export function loadExamSessions(): ExamSession[] {
   const data = localStorage.getItem("examcoder_exam_sessions");
   if (!data) {
     localStorage.setItem("examcoder_exam_sessions", JSON.stringify([]));
-    syncSaveToDb("examSessions", []);
     return [];
   }
   return JSON.parse(data);
