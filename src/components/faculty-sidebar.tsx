@@ -34,7 +34,6 @@ export default function FacultySidebar({
     { id: "assessments", label: "Assessments", icon: BookOpen },
     { id: "monitoring", label: "Live Monitoring", icon: Activity },
     { id: "reports", label: "Reports", icon: FileSpreadsheet },
-    { id: "analytics", label: "Analytics", icon: TrendingUp },
     { id: "settings", label: "Settings", icon: Settings }
   ];
 

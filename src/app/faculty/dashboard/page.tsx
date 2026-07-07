@@ -49,7 +49,6 @@ import FacultySidebar from "@/components/faculty-sidebar";
 import EmptyState from "@/components/empty-state";
 import DashboardMockup from "@/components/dashboard-mockup";
 import ReportsDashboardView from "@/components/reports-dashboard-view";
-import AnalyticsDashboardView from "@/components/analytics-dashboard-view";
 
 // Type definitions
 interface Assessment {
@@ -1390,11 +1389,6 @@ export default function FacultyDashboard() {
           {/* TAB 6: REPORTS & EXPORTS */}
           {activeTab === "reports" && (
             <ReportsDashboardView />
-          )}
-
-          {/* TAB 7: GRADE ANALYTICS */}
-          {activeTab === "analytics" && (
-            <AnalyticsDashboardView initialRole="HOD" />
           )}
 
           {/* TAB 8: SETTINGS */}
