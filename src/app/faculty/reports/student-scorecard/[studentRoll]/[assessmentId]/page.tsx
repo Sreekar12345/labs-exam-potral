@@ -645,14 +645,6 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
                     <td className="py-2 pr-8 text-slate-600 font-normal text-right">Questions Attempted</td>
                     <td className="py-2 pl-4 font-bold text-slate-950 text-left font-mono text-[13px]">{metrics.attempted} / {metrics.totalQuestions}</td>
                   </tr>
-                  <tr className="align-baseline">
-                    <td className="py-2 pr-8 text-slate-600 font-normal text-right">Time Taken</td>
-                    <td className="py-2 pl-4 font-bold text-slate-950 text-left font-mono text-[13px]">{metrics.timeTaken}</td>
-                  </tr>
-                  <tr className="align-baseline">
-                    <td className="py-2 pr-8 text-slate-600 font-normal text-right">Submission Time</td>
-                    <td className="py-2 pl-4 font-bold text-slate-950 text-left font-mono text-[13px]">{metrics.submissionTime}</td>
-                  </tr>
                 </tbody>
               </table>
             </div>
