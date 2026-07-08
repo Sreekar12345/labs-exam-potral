@@ -497,7 +497,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         const now = new Date();
         setLastSavedTime(now.toTimeString().split(" ")[0]);
       }, 800);
-    }, 5000);
+    }, 30000);
 
     return () => clearInterval(saveTimer);
   }, [networkError, showSuspendModal]);
