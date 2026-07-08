@@ -245,6 +245,7 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
   const [student, setStudent] = useState<Student | null>(null);
   const [assessment, setAssessment] = useState<Assessment | null>(null);
   const [session, setSession] = useState<ExamSession | null>(null);
+  const [examSessions, setExamSessions] = useState<ExamSession[]>([]);
   const [faculty, setFaculty] = useState({
     collegeName: "",
     department: "",
@@ -317,6 +318,7 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
         };
       }
       setSession(foundSession);
+      setExamSessions(sessionsList);
 
       // 4. Set faculty and questions
       setFaculty({
@@ -402,6 +404,15 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
           if (Array.isArray(parsed)) {
             questionIds = parsed.map((q: any) => typeof q === "object" ? q.id : q);
           }
+        } catch (e) {}
+      }
+    }
+
+    if (questionIds.length === 0) {
+      const anotherSession = examSessions.find(es => es.assessmentId === assessment.id && es.questionOrder);
+      if (anotherSession) {
+        try {
+          questionIds = JSON.parse(anotherSession.questionOrder);
         } catch (e) {}
       }
     }
@@ -571,7 +582,7 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
       },
       questionOutcomes: outcomes
     };
-  }, [student, assessment, session, allQuestions, assessmentId]);
+  }, [student, assessment, session, allQuestions, assessmentId, examSessions]);
 
   const metrics = studentData?.metrics || null;
   const questionOutcomes = studentData?.questionOutcomes || [];

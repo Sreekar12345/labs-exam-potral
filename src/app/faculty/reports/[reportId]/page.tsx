@@ -416,9 +416,20 @@ export default function ReportDetailsPage({ params }: PageProps) {
 
       // Resolve questions for this student's session
       let questionIds: string[] = [];
-      try {
-        questionIds = session ? JSON.parse(session.questionOrder) : ["15", "21", "9", "8", "18"];
-      } catch (e) {
+      if (session && session.questionOrder) {
+        try {
+          questionIds = JSON.parse(session.questionOrder);
+        } catch (e) {}
+      }
+      if (questionIds.length === 0) {
+        const anotherSession = examSessions.find(es => es.assessmentId === primaryAssessmentId && es.questionOrder);
+        if (anotherSession) {
+          try {
+            questionIds = JSON.parse(anotherSession.questionOrder);
+          } catch (e) {}
+        }
+      }
+      if (questionIds.length === 0) {
         questionIds = ["15", "21", "9", "8", "18"];
       }
 
@@ -882,9 +893,20 @@ export default function ReportDetailsPage({ params }: PageProps) {
               const primaryAssessmentId = primaryAssessment?.id || "1";
               const session = examSessions.find(es => es.studentRoll === studentItem.roll && es.assessmentId === primaryAssessmentId);
               let questionIds: string[] = [];
-              try {
-                questionIds = session ? JSON.parse(session.questionOrder) : ["15", "21", "9", "8", "18"];
-              } catch (e) {
+              if (session && session.questionOrder) {
+                try {
+                  questionIds = JSON.parse(session.questionOrder);
+                } catch (e) {}
+              }
+              if (questionIds.length === 0) {
+                const anotherSession = examSessions.find(es => es.assessmentId === primaryAssessmentId && es.questionOrder);
+                if (anotherSession) {
+                  try {
+                    questionIds = JSON.parse(anotherSession.questionOrder);
+                  } catch (e) {}
+                }
+              }
+              if (questionIds.length === 0) {
                 questionIds = ["15", "21", "9", "8", "18"];
               }
 

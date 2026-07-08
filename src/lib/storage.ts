@@ -198,15 +198,61 @@ export function triggerDbSync() {
           localStorage.setItem(KEYS.QUESTIONS, JSON.stringify(data.questions));
           hasChanges = true;
         }
-        const prevReports = localStorage.getItem("examcoder_reports");
-        if (data.reports && !areListsEqual(prevReports, data.reports)) {
-          localStorage.setItem("examcoder_reports", JSON.stringify(data.reports));
-          hasChanges = true;
+        
+        const prevReportsStr = localStorage.getItem("examcoder_reports");
+        if (data.reports) {
+          let mergedReports = [...data.reports];
+          let localReports: any[] = [];
+          try {
+            localReports = prevReportsStr ? JSON.parse(prevReportsStr) : [];
+          } catch(e) {}
+          if (!Array.isArray(localReports)) localReports = [];
+
+          let localReportsToUpload: any[] = [];
+          for (const lr of localReports) {
+            const existsInDb = mergedReports.some(dr => dr.id === lr.id);
+            if (!existsInDb) {
+              mergedReports.push(lr);
+              localReportsToUpload.push(lr);
+            }
+          }
+
+          if (localReportsToUpload.length > 0) {
+            syncSaveToDb("reports", mergedReports);
+          }
+
+          if (!areListsEqual(prevReportsStr, mergedReports)) {
+            localStorage.setItem("examcoder_reports", JSON.stringify(mergedReports));
+            hasChanges = true;
+          }
         }
-        const prevSessions = localStorage.getItem("examcoder_exam_sessions");
-        if (data.examSessions && !areListsEqual(prevSessions, data.examSessions)) {
-          localStorage.setItem("examcoder_exam_sessions", JSON.stringify(data.examSessions));
-          hasChanges = true;
+
+        const prevSessionsStr = localStorage.getItem("examcoder_exam_sessions");
+        if (data.examSessions) {
+          let mergedSessions = [...data.examSessions];
+          let localSessions: any[] = [];
+          try {
+            localSessions = prevSessionsStr ? JSON.parse(prevSessionsStr) : [];
+          } catch(e) {}
+          if (!Array.isArray(localSessions)) localSessions = [];
+
+          let localSessionsToUpload: any[] = [];
+          for (const ls of localSessions) {
+            const existsInDb = mergedSessions.some(ds => ds.id === ls.id);
+            if (!existsInDb) {
+              mergedSessions.push(ls);
+              localSessionsToUpload.push(ls);
+            }
+          }
+
+          if (localSessionsToUpload.length > 0) {
+            syncSaveToDb("examSessions", mergedSessions);
+          }
+
+          if (!areListsEqual(prevSessionsStr, mergedSessions)) {
+            localStorage.setItem("examcoder_exam_sessions", JSON.stringify(mergedSessions));
+            hasChanges = true;
+          }
         }
 
         // If there were actual changes between local storage and database, reload the page to update the UI
