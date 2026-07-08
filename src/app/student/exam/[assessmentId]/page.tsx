@@ -370,18 +370,46 @@ export default function StudentExamWorkspace({ params }: PageProps) {
         setQuestions(mapped);
         setCurrentQuestion(mapped[0]);
 
+        // Parse previous submissions
+        let savedSubmissions: Record<string, string> = {};
+        if (existingSession && existingSession.codeSubmissions) {
+          try {
+            const parsed = JSON.parse(existingSession.codeSubmissions);
+            if (parsed && typeof parsed === 'object') {
+              if (parsed.submissions) {
+                savedSubmissions = parsed.submissions;
+              } else {
+                savedSubmissions = parsed;
+              }
+            }
+          } catch (e) {}
+        }
+
         const initialCodes: Record<string, string> = {};
         mapped.forEach(mq => {
-          initialCodes[mq.id] = mq.codeTemplates.python;
+          initialCodes[mq.id] = savedSubmissions[mq.id] || mq.codeTemplates.python;
         });
         setCodeContent(initialCodes);
 
         const initialStates: Record<string, "not-visited" | "visited" | "attempted" | "submitted"> = {};
         mapped.forEach((mq, idx) => {
-          initialStates[mq.id] = idx === 0 ? "visited" : "not-visited";
+          if (savedSubmissions[mq.id]) {
+            initialStates[mq.id] = "submitted";
+          } else {
+            initialStates[mq.id] = idx === 0 ? "visited" : "not-visited";
+          }
         });
         setQuestionStates(initialStates);
       }
+    } else {
+      const redirectTimer = setTimeout(() => {
+        const currentAssessments = loadAssessments();
+        if (!currentAssessments.find(a => a.id === assessmentId)) {
+          alert("This assessment is not available or has been removed from the database.");
+          router.push("/student/dashboard");
+        }
+      }, 4000);
+      return () => clearTimeout(redirectTimer);
     }
   }, [assessmentId]);
 
