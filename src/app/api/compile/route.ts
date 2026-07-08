@@ -453,6 +453,15 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
           arr.push([a[i], b[i]]);
         }
         return arr;
+      },
+      pyIn: (x: any, y: any) => {
+        if (!y) return false;
+        if (typeof y.has === 'function') return y.has(x);
+        if (typeof y.includes === 'function') return y.includes(x);
+        if (typeof y === 'string') return y.includes(String(x));
+        if (Array.isArray(y)) return y.includes(x);
+        if (typeof y === 'object') return x in y;
+        return false;
       }
     };
 
@@ -528,14 +537,35 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
 
     function translateExpr(expr: string): string {
       let t = expr;
+
+      // 1. Double slash integer division (e.g. a // b -> Math.floor(a / b))
+      t = t.replace(/([a-zA-Z0-9_]+(?:\([^)]*\))?)\s*\/\/\s*([a-zA-Z0-9_]+(?:\([^)]*\))?)/g, 'Math.floor(($1) / ($2))');
+
+      // 2. Triple colon / step slices
+      t = t.replace(/\[\s*:\s*:\s*-1\s*\]/g, '.split("").reverse().join("")');
+      t = t.replace(/\[\s*:\s*:\s*2\s*\]/g, '.split("").filter((_, i) => i % 2 === 0).join("")');
+
+      // 3. Single colon slices (e.g. s[a:b], s[a:], s[:b])
+      // s[a:b]
+      t = t.replace(/([a-zA-Z0-9_]+)\[([^\]:]+):([^\]:]+)\]/g, '$1.slice($2, $3)');
+      // s[a:]
+      t = t.replace(/([a-zA-Z0-9_]+)\[([^\]:]+):\]/g, '$1.slice($2)');
+      // s[:b]
+      t = t.replace(/([a-zA-Z0-9_]+)\[:([^\]:]+)\]/g, '$1.slice(0, $2)');
+
+      // 3.5. Membership checks (e.g. x in y -> pyIn(x, y))
+      t = t.replace(/(\b[a-zA-Z0-9_]+|["'][^"']*["'])\s+not\s+in\s+(\b[a-zA-Z0-9_]+(?:\([^)]*\))?|["'][^"']*["'])/g, '!pyIn($1, $2)');
+      t = t.replace(/(\b[a-zA-Z0-9_]+|["'][^"']*["'])\s+in\s+(\b[a-zA-Z0-9_]+(?:\([^)]*\))?|["'][^"']*["'])/g, 'pyIn($1, $2)');
+
+      // 4. Comparison and logical operators
       t = t.replace(/\band\b/g, '&&');
       t = t.replace(/\bor\b/g, '||');
       t = t.replace(/\bnot\b/g, '!');
       t = t.replace(/\bTrue\b/g, 'true');
       t = t.replace(/\bFalse\b/g, 'false');
       t = t.replace(/\bNone\b/g, 'null');
-      t = t.replace(/\[\s*:\s*:\s*-1\s*\]/g, '.split("").reverse().join("")');
-      t = t.replace(/\[\s*:\s*:\s*2\s*\]/g, '.split("").filter((_, i) => i % 2 === 0).join("")');
+
+      // 5. String/list method overrides
       t = t.replace(/\.append\s*\(/g, '.push(');
       t = t.replace(/\.split\s*\(\s*\)/g, '.split(/\\s+/)');
       t = t.replace(/\.lower\s*\(\)/g, '.toLowerCase()');
@@ -556,7 +586,7 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
     }
 
     const script = `
-      const { input, print, len, int, float, str, chr, ord, list, dict, set, sum, max, min, sorted, range, map, filter, abs, round, enumerate, zip } = context;
+      const { input, print, len, int, float, str, chr, ord, list, dict, set, sum, max, min, sorted, range, map, filter, abs, round, enumerate, zip, pyIn } = context;
       ${jsLines.join('\n')}
     `;
 
