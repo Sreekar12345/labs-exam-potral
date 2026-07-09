@@ -583,6 +583,8 @@ export function simulatePython(questionTitle: string, userCode: string, input: s
       t = t.replace(/\.lower\s*\(\)/g, '.toLowerCase()');
       t = t.replace(/\.upper\s*\(\)/g, '.toUpperCase()');
       t = t.replace(/\.swapcase\s*\(\)/g, '.split("").map(c => c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase()).join("")');
+      t = t.replace(/\.strip\s*\(\s*\)/g, '.trim()');
+      t = t.replace(/\.replace\s*\(/g, '.replaceAll(');
       return t;
     }
 
@@ -758,11 +760,18 @@ export async function POST(request: Request) {
     const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (language === "python" || language === "python3") {
-      const sandboxDir = path.join(process.cwd(), "sandbox");
-      if (!fs.existsSync(sandboxDir)) {
-        fs.mkdirSync(sandboxDir, { recursive: true });
+      let sandboxDir = "";
+      const dockerActive = await isDockerAvailable();
+
+      if (dockerActive) {
+        sandboxDir = path.join(process.cwd(), "sandbox");
+        if (!fs.existsSync(sandboxDir)) {
+          fs.mkdirSync(sandboxDir, { recursive: true });
+        }
+        tempFilePath = path.join(sandboxDir, `temp_code_${fileId}.py`);
+      } else {
+        tempFilePath = path.join(os.tmpdir(), `temp_code_${fileId}.py`);
       }
-      tempFilePath = path.join(sandboxDir, `temp_code_${fileId}.py`);
       
       let finalCode = code;
       const hasPrint = /\bprint\b|\bsys\.stdout\.write\b/.test(code);
@@ -830,7 +839,6 @@ except Exception:
 
       fs.writeFileSync(tempFilePath, finalCode);
 
-      const dockerActive = await isDockerAvailable();
       let result;
 
       if (dockerActive) {
