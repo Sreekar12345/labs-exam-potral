@@ -514,21 +514,57 @@ export default function StudentExamWorkspace({ params }: PageProps) {
     return () => clearInterval(clockTimer);
   }, [networkError]);
 
-  // Auto save simulation
+  // Auto save code content directly to MongoDB session state
   useEffect(() => {
     const saveTimer = setInterval(() => {
       if (networkError || showSuspendModal) return;
 
       setSaveStatus("Saving...");
-      setTimeout(() => {
-        setSaveStatus("Saved");
-        const now = new Date();
-        setLastSavedTime(now.toTimeString().split(" ")[0]);
-      }, 800);
+      
+      try {
+        const studentProfile = loadStudentProfile();
+        const studentRoll = studentProfile.roll || "DEMO_STUDENT";
+        const sessions = loadExamSessions();
+        const updated = sessions.map(s => {
+          if (s.studentRoll === studentRoll && s.assessmentId === assessmentId) {
+            let data = {
+              submissions: {} as Record<string, string>,
+              warningsCount: warningsCount,
+              warningsLogs: [] as string[],
+              lastActivity: "Just now",
+              status: "Active" as "Active" | "Idle" | "Submitted" | "Disconnected"
+            };
+            if (s.codeSubmissions) {
+              try {
+                const parsed = JSON.parse(s.codeSubmissions);
+                if (parsed && typeof parsed === 'object') {
+                  if ('submissions' in parsed) {
+                    data = { ...data, ...parsed, submissions: { ...parsed.submissions } };
+                  } else {
+                    data.submissions = parsed;
+                  }
+                }
+              } catch (e) {}
+            }
+            questions.forEach(q => {
+              data.submissions[q.id] = codeContent[q.id] || "";
+            });
+            return { ...s, codeSubmissions: JSON.stringify(data) };
+          }
+          return s;
+        });
+        saveExamSessions(updated);
+      } catch (e) {
+        console.error("Auto save failed:", e);
+      }
+
+      setSaveStatus("Saved");
+      const now = new Date();
+      setLastSavedTime(now.toTimeString().split(" ")[0]);
     }, 30000);
 
     return () => clearInterval(saveTimer);
-  }, [networkError, showSuspendModal]);
+  }, [networkError, showSuspendModal, codeContent, questions, warningsCount]);
 
   const saveProctorLogToSession = (nextWarnings: number, message: string) => {
     try {
@@ -1326,7 +1362,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
                 disabled={isQuestionSubmitted}
                 className="bg-slate-900 border border-slate-800 text-slate-200 px-2.5 py-0.5 rounded font-mono text-xs focus:ring-1 focus:ring-blue-500 outline-hidden font-bold disabled:opacity-50"
               >
-                <option value="python">Python 3.10</option>
+                <option value="python">Python 3.10 (Jupyter)</option>
                 <option value="java">Java (OpenJDK 17)</option>
                 <option value="cpp">C++17 (G++ 9.2)</option>
                 <option value="c">C (GCC 9.2)</option>
@@ -1348,7 +1384,7 @@ export default function StudentExamWorkspace({ params }: PageProps) {
               {/* Theme toggle */}
               <button
                 onClick={() => setEditorTheme(prev => prev === "vs-dark" ? "light" : "vs-dark")}
-                className="bg-slate-900 border border-slate-800 hover:bg-slate-800 text-slate-400 hover:text-white px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider"
+                className="bg-slate-900 border border-slate-800 hover:bg-slate-850 text-slate-400 hover:text-white px-2 py-0.5 rounded font-bold text-[9px] uppercase tracking-wider"
               >
                 {editorTheme === "vs-dark" ? "Light theme" : "Dark theme"}
               </button>

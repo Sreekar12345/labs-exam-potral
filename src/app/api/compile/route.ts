@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import WebSocket from "ws";
 import { spawn, exec } from "child_process";
 import fs from "fs";
 import path from "path";
@@ -14,6 +15,213 @@ async function isDockerAvailable(): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+function stripAnsi(str: string): string {
+  return str.replace(/[\u001b\u009b][[()#;?]*(?:[0-9]{1,4}(?:;[0-9]{0,4})*)?[0-9A-ORZcf-nqry=><]/g, "");
+}
+
+interface JupyterResult {
+  stdout: string;
+  stderr: string;
+  error?: string;
+  traceback?: string[];
+}
+
+async function runCodeOnJupyter(
+  jupyterUrl: string,
+  token: string,
+  code: string,
+  inputData: string
+): Promise<JupyterResult> {
+  return new Promise(async (resolve) => {
+    let kernelId = "";
+    let ws: WebSocket | null = null;
+    let isDone = false;
+    let stdout = "";
+    let stderr = "";
+    let error = "";
+    let traceback: string[] = [];
+    let hasReceivedReply = false;
+
+    // Helper to cleanup and resolve
+    const cleanAndResolve = async (res: JupyterResult) => {
+      if (isDone) return;
+      isDone = true;
+
+      if (ws) {
+        try {
+          ws.close();
+        } catch (e) {}
+      }
+
+      if (kernelId) {
+        // Shutdown the kernel to release resources
+        try {
+          const deleteUrl = `${jupyterUrl}/api/kernels/${kernelId}${token ? `?token=${token}` : ""}`;
+          await fetch(deleteUrl, {
+            method: "DELETE",
+            headers: token ? { "Authorization": `token ${token}` } : {}
+          });
+        } catch (e) {
+          console.error("Failed to delete Jupyter kernel:", e);
+        }
+      }
+
+      resolve(res);
+    };
+
+    // Setup overall timeout
+    const timeoutTimer = setTimeout(() => {
+      cleanAndResolve({
+        stdout,
+        stderr: stderr + "\nTime Limit Exceeded: Execution timed out after 15 seconds.",
+        error: "TimeLimitExceeded"
+      });
+    }, 15000);
+
+    try {
+      // 1. Create a Python kernel on Jupyter Server
+      const createUrl = `${jupyterUrl}/api/kernels${token ? `?token=${token}` : ""}`;
+      const startRes = await fetch(createUrl, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { "Authorization": `token ${token}` } : {})
+        },
+        body: JSON.stringify({ name: "python3" })
+      });
+
+      if (!startRes.ok) {
+        clearTimeout(timeoutTimer);
+        return resolve({
+          stdout: "",
+          stderr: `Jupyter Server start kernel failed: ${startRes.statusText}`,
+          error: "JupyterKernelError"
+        });
+      }
+
+      const kernelData = await startRes.json();
+      kernelId = kernelData.id;
+
+      // 2. Open WebSocket connection to the kernel channels
+      const wsProtocol = jupyterUrl.startsWith("https") ? "wss" : "ws";
+      const wsBase = jupyterUrl.replace(/^https?:\/\//, "");
+      const wsUrl = `${wsProtocol}://${wsBase}/api/kernels/${kernelId}/channels${token ? `?token=${token}` : ""}`;
+
+      ws = new WebSocket(wsUrl);
+
+      const inputs = inputData ? inputData.split("\n") : [];
+      let inputIdx = 0;
+
+      ws.on("open", () => {
+        const session = Math.random().toString(36).substring(2);
+        const msgId = Math.random().toString(36).substring(2);
+
+        const executeRequest = {
+          channel: "shell",
+          header: {
+            msg_id: msgId,
+            username: "student",
+            session: session,
+            msg_type: "execute_request",
+            version: "5.3"
+          },
+          parent_header: {},
+          metadata: {},
+          content: {
+            code: code,
+            silent: false,
+            store_history: false,
+            user_expressions: {},
+            allow_stdin: true,
+            stop_on_error: true
+          },
+          buffers: []
+        };
+        ws?.send(JSON.stringify(executeRequest));
+      });
+
+      ws.on("message", (data) => {
+        try {
+          const msg = JSON.parse(data.toString());
+          const msgType = msg.header.msg_type;
+
+          if (msgType === "stream") {
+            const streamName = msg.content.name;
+            const text = msg.content.text;
+            if (streamName === "stdout") {
+              stdout += text;
+            } else if (streamName === "stderr") {
+              stderr += text;
+            }
+          } else if (msgType === "error") {
+            error = msg.content.evalue || "RuntimeError";
+            traceback = (msg.content.traceback || []).map((t: string) => stripAnsi(t));
+          } else if (msgType === "execute_reply") {
+            hasReceivedReply = true;
+            if (msg.content.status === "error") {
+              error = error || msg.content.evalue || "ExecutionError";
+            }
+          } else if (msgType === "input_request") {
+            // Kernel is requesting stdin input!
+            const promptValue = inputIdx < inputs.length ? inputs[inputIdx] : "";
+            inputIdx++;
+
+            const inputReply = {
+              channel: "stdin",
+              header: {
+                msg_id: Math.random().toString(36).substring(2),
+                username: "student",
+                session: msg.header.session,
+                msg_type: "input_reply",
+                version: "5.3"
+              },
+              parent_header: msg.header,
+              metadata: {},
+              content: {
+                value: promptValue
+              }
+            };
+            ws?.send(JSON.stringify(inputReply));
+          } else if (msgType === "status") {
+            const state = msg.content.execution_state;
+            if (state === "idle" && hasReceivedReply) {
+              // Wait 100ms for any trailing stream messages to be delivered
+              setTimeout(() => {
+                clearTimeout(timeoutTimer);
+                cleanAndResolve({ stdout, stderr, error, traceback });
+              }, 100);
+            }
+          }
+        } catch (e: any) {
+          console.error("Failed to parse WebSocket message:", e);
+        }
+      });
+
+      ws.on("error", (err) => {
+        clearTimeout(timeoutTimer);
+        cleanAndResolve({
+          stdout,
+          stderr: stderr + `\nWebSocket channels error: ${err.message}`,
+          error: "WebSocketError"
+        });
+      });
+
+      ws.on("close", () => {
+        clearTimeout(timeoutTimer);
+        cleanAndResolve({ stdout, stderr, error, traceback });
+      });
+
+    } catch (err: any) {
+      clearTimeout(timeoutTimer);
+      cleanAndResolve({
+        stdout: "",
+        stderr: `Failed to compile/run code via Jupyter REST: ${err.message}`,
+        error: "JupyterRESTError"
+      });
+    }
+  });
 }
 
 // Helper to run code with a timeout and stdin feed
@@ -760,6 +968,86 @@ export async function POST(request: Request) {
     const fileId = `${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
 
     if (language === "python" || language === "python3") {
+      const jupyterUrl = process.env.JUPYTER_URL;
+      const jupyterToken = process.env.JUPYTER_TOKEN || "";
+
+      if (jupyterUrl) {
+        let finalCode = code;
+        const hasPrint = /\bprint\b|\bsys\.stdout\.write\b/.test(code);
+        if (!hasPrint) {
+          const runnerExtension = `
+
+# Auto-injected runner for function execution from stdin
+import sys
+import ast
+import inspect
+
+try:
+    user_funcs = []
+    for name, obj in list(globals().items()):
+        if name.startswith('_') or not callable(obj):
+            continue
+        if inspect.ismodule(obj) or inspect.isclass(obj):
+            continue
+        if name in ['ast', 'sys', 'inspect', 're', 'path', 'fs', 'NextResponse', 'spawn', 'finalCode', 'hasPrint', 'runnerExtension']:
+            continue
+        user_funcs.append(obj)
+        
+    if user_funcs:
+        try:
+            user_funcs.sort(key=lambda f: inspect.getsourcelines(f)[1])
+        except Exception:
+            pass
+        func = user_funcs[-1]
+        
+        input_str = sys.stdin.read().strip()
+        if (input_str.startswith('"') and input_str.endswith('"')) or (input_str.startswith("'") and input_str.endswith("'")):
+            eval_input = input_str[1:-1]
+        else:
+            eval_input = input_str
+            
+        sig = inspect.signature(func)
+        num_params = len(sig.parameters)
+        if num_params > 0:
+            if num_params == 1:
+                try:
+                    arg = ast.literal_eval(eval_input)
+                except Exception:
+                    arg = eval_input
+                res = func(arg)
+            else:
+                parts = eval_input.split(',')
+                if len(parts) != num_params:
+                    parts = eval_input.split()
+                args = []
+                for part in parts:
+                    try:
+                        args.append(ast.literal_eval(part.strip()))
+                    except Exception:
+                        args.append(part.strip())
+                res = func(*args[:num_params])
+        else:
+            res = func()
+        if res is not None:
+            print(res)
+except Exception:
+    pass
+`;
+          finalCode = code + runnerExtension;
+        }
+
+        console.log(`[JUPYTER BACKEND] Delegating compilation to Jupyter Server at ${jupyterUrl}`);
+        const result = await runCodeOnJupyter(jupyterUrl, jupyterToken, finalCode, input || "");
+        
+        return NextResponse.json({
+          status: "success",
+          stdout: result.stdout,
+          stderr: result.error ? `${result.error}\n${result.traceback?.join("\n") || ""}` : result.stderr,
+          exitCode: result.error ? 1 : 0,
+          error: result.error || null,
+        });
+      }
+
       let sandboxDir = "";
       const dockerActive = await isDockerAvailable();
 
