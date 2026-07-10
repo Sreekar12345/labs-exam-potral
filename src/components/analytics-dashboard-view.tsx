@@ -102,10 +102,56 @@ export default function AnalyticsDashboardView({
   const [examSessions, setExamSessions] = useState<any[]>([]);
 
   useEffect(() => {
+    // Load local data as immediate fallback
     setAllStudents(loadStudents());
     setAllAssessments(loadAssessments());
     setAllQuestions(loadQuestions());
     setExamSessions(loadExamSessions());
+
+    // Fetch fresh database records for complete mapping
+    fetch("/api/sync")
+      .then(res => res.json())
+      .then(data => {
+        if (data.status === "success") {
+          if (data.students) {
+            const dbStudents = data.students.map((s: any) => ({
+              id: s.id,
+              roll: s.roll,
+              name: s.name,
+              email: s.email,
+              mobile: s.mobile || "",
+              collegeName: s.collegeName || "Gouthami Institute of Technology and Management for Women",
+              dept: s.dept,
+              year: s.year,
+              section: s.section,
+              status: s.status || "Active",
+              lastLogin: s.lastLogin || ""
+            }));
+            setAllStudents(dbStudents);
+          }
+          
+          if (data.examSessions) {
+            const dbSessions = data.examSessions.map((es: any) => ({
+              id: es.id,
+              studentRoll: es.studentRoll,
+              assessmentId: es.assessmentId,
+              questionOrder: es.questionOrder,
+              startedAt: es.startedAt,
+              submittedAt: es.submittedAt,
+              codeSubmissions: es.codeSubmissions
+            }));
+            setExamSessions(dbSessions);
+          }
+
+          if (data.assessments && data.assessments.length > 0) {
+            setAllAssessments(data.assessments);
+          }
+          if (data.questions && data.questions.length > 0) {
+            setAllQuestions(data.questions);
+          }
+        }
+      })
+      .catch(err => console.error("Analytics database sync error:", err));
   }, []);
 
   const isEmptyState = allStudents.length === 0 || allAssessments.length === 0;

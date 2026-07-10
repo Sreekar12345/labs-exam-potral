@@ -74,14 +74,6 @@ export async function POST(request: Request) {
     const { students, assessments, questions, reports, examSessions, type } = await request.json();
 
     if (type === "students" && students) {
-      const studentRolls = students.map((s: any) => s.roll);
-      await db.student.deleteMany({
-        where: {
-          roll: {
-            notIn: studentRolls,
-          },
-        },
-      });
       for (const s of students) {
         await db.student.upsert({
           where: { roll: s.roll },
@@ -113,15 +105,6 @@ export async function POST(request: Request) {
     }
 
     if (type === "assessments" && assessments) {
-      // Clean delete removed assessments or just upsert all
-      const assessmentIds = assessments.map((a: any) => a.id);
-      await db.assessment.deleteMany({
-        where: {
-          id: {
-            notIn: assessmentIds,
-          },
-        },
-      });
       for (const a of assessments) {
         await db.assessment.upsert({
           where: { id: a.id },
@@ -151,14 +134,6 @@ export async function POST(request: Request) {
     }
 
     if (type === "questions" && questions) {
-      const questionIds = questions.map((q: any) => q.id);
-      await db.question.deleteMany({
-        where: {
-          id: {
-            notIn: questionIds,
-          },
-        },
-      });
       for (const q of questions) {
         await db.question.upsert({
           where: { id: q.id },
@@ -222,14 +197,6 @@ export async function POST(request: Request) {
     }
 
     if (type === "reports" && reports) {
-      const reportIds = reports.map((r: any) => r.id);
-      await db.reportLog.deleteMany({
-        where: {
-          id: {
-            notIn: reportIds,
-          },
-        },
-      });
       for (const r of reports) {
         await db.reportLog.upsert({
           where: { id: r.id },
@@ -255,14 +222,6 @@ export async function POST(request: Request) {
     }
 
     if (type === "examSessions" && examSessions) {
-      const sessionIds = examSessions.map((es: any) => es.id);
-      await db.examSession.deleteMany({
-        where: {
-          id: {
-            notIn: sessionIds,
-          },
-        },
-      });
       for (const es of examSessions) {
         await db.examSession.upsert({
           where: { id: es.id },

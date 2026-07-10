@@ -109,14 +109,8 @@ export default function ReportsDashboardView({ isStandalone = false }: ReportsDa
             lastLogin: s.lastLogin || ""
           }));
 
-          // Merge: DB students take priority
-          const rollSet = new Set(dbStudents.map(s => s.roll));
-          const mergedStudents = [
-            ...dbStudents,
-            ...localStudents.filter(s => !rollSet.has(s.roll))
-          ];
-          setStudents(mergedStudents);
-          setStudentCount(mergedStudents.length);
+          setStudents(dbStudents);
+          setStudentCount(dbStudents.length);
         }
       })
       .catch(err => console.error("Dashboard database sync error:", err));

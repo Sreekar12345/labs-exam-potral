@@ -325,15 +325,10 @@ export default function ReportDetailsPage({ params }: PageProps) {
           }));
 
           // Build a merged list: DB students take priority, then add any localStorage-only students
-          const rollSet = new Set(dbStudents.map(s => s.roll));
-          const mergedStudents = [
-            ...dbStudents,
-            ...localStudents.filter(s => !rollSet.has(s.roll))
-          ];
-          setStudents(mergedStudents);
+          setStudents(dbStudents);
 
-          // Merge exam sessions from database
-          if (data.examSessions && data.examSessions.length > 0) {
+          // Use database exam sessions strictly
+          if (data.examSessions) {
             const dbSessions: ExamSession[] = data.examSessions.map((es: any) => ({
               id: es.id,
               studentRoll: es.studentRoll,
@@ -343,12 +338,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
               submittedAt: es.submittedAt,
               codeSubmissions: es.codeSubmissions
             }));
-            const sessionIdSet = new Set(dbSessions.map(s => s.id));
-            const mergedSessions = [
-              ...dbSessions,
-              ...localSessions.filter(s => !sessionIdSet.has(s.id))
-            ];
-            setExamSessions(mergedSessions);
+            setExamSessions(dbSessions);
           }
 
           // Update assessments and questions from DB too
@@ -484,8 +474,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
       // Check if student has actual attempts in localStorage or database session
       let hasActualSubmissions = false;
       const studentAttempts = resolved.map(q => {
-        const key = `examcoder_code_${s.roll}_${primaryAssessmentId}_${q.id}`;
-        const localCode = sessionCodes[q.id || ""] || (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
+        const localCode = sessionCodes[q.id || ""] || "";
         
         const isAttempted = localCode !== null && localCode.trim() !== "" && 
                             localCode.replace(/\s/g, "") !== `#Language:Python3.10defsolve():passsolve()`.replace(/\s/g, "") &&
@@ -544,8 +533,7 @@ export default function ReportDetailsPage({ params }: PageProps) {
           } catch (e) {}
         }
 
-        const key = `examcoder_code_${s.roll}_${primaryAssessmentId}_${q.id}`;
-        const localCode = sessionCodes[q.id || ""] || (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
+        const localCode = sessionCodes[q.id || ""] || "";
         
         const isAttempted = localCode !== null && localCode.trim() !== "" && 
                             localCode.replace(/\s/g, "") !== `#Language:Python3.10defsolve():passsolve()`.replace(/\s/g, "") &&

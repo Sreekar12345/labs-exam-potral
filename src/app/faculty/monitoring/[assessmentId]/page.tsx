@@ -3,7 +3,7 @@
 import React, { use, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { loadStudents, loadExamSessions, saveExamSessions, loadQuestions } from "@/lib/storage";
+import { loadStudents, loadExamSessions, saveExamSessions, loadQuestions, Student, ExamSession } from "@/lib/storage";
 import { 
   ArrowLeft, 
   Search, 
@@ -83,9 +83,10 @@ export default function ProctorControlRoom({ params }: PageProps) {
   const [students, setStudents] = useState<StudentSession[]>([]);
 
   // Hydrate monitoring sessions from storage student roster
+  // Hydrate monitoring sessions from database or local storage fallback
   useEffect(() => {
-    const roster = loadStudents();
-    const examSessions = loadExamSessions();
+    if (isSimulating) return;
+
     const allQuestions = loadQuestions();
 
     const parseSubmissions = (jsonStr: string | null | undefined) => {
@@ -120,9 +121,116 @@ export default function ProctorControlRoom({ params }: PageProps) {
       return defaultVal;
     };
 
-    const sessions: StudentSession[] = roster.map(s => {
-      const session = examSessions.find(es => es.studentRoll === s.roll && es.assessmentId === assessmentId);
-      
+    const fetchProgress = () => {
+      fetch("/api/sync")
+        .then(res => res.json())
+        .then(data => {
+          if (data.status === "success") {
+            const roster: Student[] = data.students || [];
+            const examSessions: ExamSession[] = data.examSessions || [];
+
+            const sessions: StudentSession[] = roster.map(s => {
+              const session = examSessions.find(es => es.studentRoll === s.roll && es.assessmentId === assessmentId);
+              
+              let currentQuestion = "None";
+              let attemptedCount = 0;
+              let submittedCount = 0;
+              let lastActivity = "Not started";
+              let status: "Active" | "Idle" | "Submitted" | "Disconnected" = "Disconnected";
+              let warningsCount = 0;
+              let ip = "—";
+              let recentLogs: string[] = [];
+
+              if (session) {
+                const parsed = parseSubmissions(session.codeSubmissions);
+                submittedCount = Object.keys(parsed.submissions).length;
+                attemptedCount = submittedCount;
+                warningsCount = parsed.warningsCount;
+                recentLogs = parsed.warningsLogs;
+                lastActivity = parsed.lastActivity;
+                status = parsed.status;
+                ip = "192.168.12." + Math.floor(100 + (s.roll.charCodeAt(s.roll.length - 1) || 0) * 1.5);
+
+                if (session.submittedAt) {
+                  status = "Submitted";
+                }
+
+                // Determine current question based on code submissions key
+                const orderIds = session.questionOrder ? JSON.parse(session.questionOrder) : [];
+                if (orderIds.length > 0) {
+                  const unanswered = orderIds.find((id: string) => !parsed.submissions[id]);
+                  if (unanswered) {
+                    const q = allQuestions.find(que => que.id === unanswered);
+                    currentQuestion = q ? q.title : "In Progress";
+                  } else {
+                    currentQuestion = "All Completed";
+                  }
+                }
+              }
+
+              return {
+                roll: s.roll,
+                name: s.name,
+                dept: s.dept,
+                year: s.year,
+                section: s.section,
+                currentQuestion,
+                attemptedCount,
+                submittedCount,
+                lastActivity,
+                status,
+                warningsCount,
+                ip,
+                recentLogs
+              };
+            });
+
+            setStudents(sessions);
+
+            // Hydrate surveillance events feed from actual session logs
+            const allEvents: ActivityEvent[] = [];
+            roster.forEach(student => {
+              const session = examSessions.find(es => es.studentRoll === student.roll && es.assessmentId === assessmentId);
+              if (session && session.codeSubmissions) {
+                const parsed = parseSubmissions(session.codeSubmissions);
+                parsed.warningsLogs.forEach((log: string, logIdx: number) => {
+                  const parts = log.split(" - ");
+                  const time = parts[0] || "";
+                  const eventText = parts[1] || log;
+                  
+                  let severity: "info" | "warning" | "critical" = "info";
+                  if (eventText.toLowerCase().includes("warning") || eventText.toLowerCase().includes("tab")) {
+                    severity = "warning";
+                  }
+                  if (eventText.toLowerCase().includes("disqualified") || eventText.toLowerCase().includes("suspended")) {
+                    severity = "critical";
+                  }
+                  
+                  allEvents.push({
+                    id: `${student.roll}_${logIdx}`,
+                    time,
+                    roll: student.roll,
+                    name: student.name,
+                    event: eventText,
+                    severity
+                  });
+                });
+              }
+            });
+
+            // Sort events by time descending
+            allEvents.sort((a, b) => b.time.localeCompare(a.time));
+            setEvents(allEvents.slice(0, 15));
+          }
+        })
+        .catch(err => console.error("Proctor dashboard poll error:", err));
+    };
+
+    // Load static local data first as fallback
+    const localRoster = loadStudents();
+    const localSessions = loadExamSessions();
+    const fallbackSessions = localRoster.map(s => {
+      const session = localSessions.find(es => es.studentRoll === s.roll && es.assessmentId === assessmentId);
       let currentQuestion = "None";
       let attemptedCount = 0;
       let submittedCount = 0;
@@ -141,12 +249,7 @@ export default function ProctorControlRoom({ params }: PageProps) {
         lastActivity = parsed.lastActivity;
         status = parsed.status;
         ip = "192.168.12." + Math.floor(100 + (s.roll.charCodeAt(s.roll.length - 1) || 0) * 1.5);
-
-        if (session.submittedAt) {
-          status = "Submitted";
-        }
-
-        // Determine current question based on code submissions key
+        if (session.submittedAt) status = "Submitted";
         const orderIds = session.questionOrder ? JSON.parse(session.questionOrder) : [];
         if (orderIds.length > 0) {
           const unanswered = orderIds.find((id: string) => !parsed.submissions[id]);
@@ -158,7 +261,6 @@ export default function ProctorControlRoom({ params }: PageProps) {
           }
         }
       }
-
       return {
         roll: s.roll,
         name: s.name,
@@ -175,44 +277,13 @@ export default function ProctorControlRoom({ params }: PageProps) {
         recentLogs
       };
     });
+    setStudents(fallbackSessions);
 
-    setStudents(sessions);
-
-    // Hydrate surveillance events feed from actual session logs
-    const allEvents: ActivityEvent[] = [];
-    roster.forEach(student => {
-      const session = examSessions.find(es => es.studentRoll === student.roll && es.assessmentId === assessmentId);
-      if (session && session.codeSubmissions) {
-        const parsed = parseSubmissions(session.codeSubmissions);
-        parsed.warningsLogs.forEach((log: string, logIdx: number) => {
-          const parts = log.split(" - ");
-          const time = parts[0] || "";
-          const eventText = parts[1] || log;
-          
-          let severity: "info" | "warning" | "critical" = "info";
-          if (eventText.toLowerCase().includes("warning") || eventText.toLowerCase().includes("tab")) {
-            severity = "warning";
-          }
-          if (eventText.toLowerCase().includes("disqualified") || eventText.toLowerCase().includes("suspended")) {
-            severity = "critical";
-          }
-          
-          allEvents.push({
-            id: `${student.roll}_${logIdx}`,
-            time,
-            roll: student.roll,
-            name: student.name,
-            event: eventText,
-            severity
-          });
-        });
-      }
-    });
-
-    // Sort events by time descending
-    allEvents.sort((a, b) => b.time.localeCompare(a.time));
-    setEvents(allEvents.slice(0, 15));
-  }, []);
+    // Initial load and poll
+    fetchProgress();
+    const timer = setInterval(fetchProgress, 10000);
+    return () => clearInterval(timer);
+  }, [assessmentId, isSimulating]);
 
   // Initial Activity feed events log
   const [events, setEvents] = useState<ActivityEvent[]>([]);

@@ -352,14 +352,6 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
             lastLogin: s.lastLogin || ""
           }));
 
-          // Merge: DB students take priority
-          const rollSet = new Set(dbStudents.map(s => s.roll));
-          const mergedStudents = [
-            ...dbStudents,
-            ...localStudentsList.filter(s => !rollSet.has(s.roll))
-          ];
-
-          // Merge exam sessions
           const dbSessions: ExamSession[] = (data.examSessions || []).map((es: any) => ({
             id: es.id,
             studentRoll: es.studentRoll,
@@ -369,17 +361,9 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
             submittedAt: es.submittedAt,
             codeSubmissions: es.codeSubmissions
           }));
-          const sessionIdSet = new Set(dbSessions.map(s => s.id));
-          const mergedSessions = [
-            ...dbSessions,
-            ...localSessionsList.filter(s => !sessionIdSet.has(s.id))
-          ];
 
-          const mergedAssessments = (data.assessments && data.assessments.length > 0) ? data.assessments : localAssessmentsList;
-          const mergedQuestions = (data.questions && data.questions.length > 0) ? data.questions : localQuestionsList;
-
-          // Re-resolve with merged database data
-          resolveAndSet(mergedStudents, mergedAssessments, mergedQuestions, mergedSessions);
+          // Re-resolve with database data strictly
+          resolveAndSet(dbStudents, data.assessments || [], data.questions || [], dbSessions);
         }
       })
       .catch(err => console.error("Scorecard data sync error:", err))
@@ -467,8 +451,7 @@ export default function StudentScorecardReportPage({ params }: PageProps) {
     // Check if the student has actual attempts in localStorage or database session
     let hasActualSubmissions = false;
     const studentAttempts = resolved.map(q => {
-      const key = `examcoder_code_${student.roll}_${assessmentId}_${q.id}`;
-      const localCode = sessionCodes[q.id || ""] || (typeof window !== "undefined" ? window.localStorage.getItem(key) : null);
+      const localCode = sessionCodes[q.id || ""] || "";
       
       const isAttempted = localCode !== null && localCode.trim() !== "" && 
                           localCode.replace(/\s/g, "") !== `#Language:Python3.10defsolve():passsolve()`.replace(/\s/g, "") &&
