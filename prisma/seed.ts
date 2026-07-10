@@ -245,7 +245,7 @@ async function main() {
         c: `// Language: C\n#include <stdio.h>\nint fib(int n) { return 0; }`,
         cpp: `// Language: C++17\nint fib(int n) { return 0; }`,
         java: `// Language: Java\nclass Solution { public int fib(int n) { return 0; } }`,
-        python: `# Language: Python 3.10\ndef fib(n):\n    if n <= 1: return n\n    return fib(n-1) + fib(n-2)`
+        python: `# Language: Python 3.10\ndef fib(n):\n    # Write your recursive code here\n    pass\n`
       }),
       sampleInput: "4",
       sampleOutput: "3",
@@ -292,7 +292,9 @@ async function main() {
   for (const q of questions) {
     await prisma.question.upsert({
       where: { id: q.id },
-      update: {},
+      update: {
+        codeTemplates: q.codeTemplates
+      },
       create: q
     });
   }
